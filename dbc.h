@@ -153,3 +153,10 @@ extern  void
 #define DBC_GOOD( EXP )  (EXP)
 
 #endif
+
+// plays a short tick sound for acoustic error tracing
+// will always tick in WS-mode
+void
+    dbgTick(
+            unsigned int const style = 1
+        );

@@ -245,3 +245,32 @@ dbgTick()
     new ::std::thread(beepThread);
 
 #endif
+
+////////////////////////////////////////////////////////////////////////////////
+// !!!!! Windows Vista doesnt interrupt previous sounds
+void
+dbgTick(
+   unsigned int const inStyle
+)
+{
+
+    // play new sound
+    PlaySound(
+            "c:\\Windows\\media\\Windows Information Bar.wav"
+        ,   0
+        ,
+                // The sound is played asynchronously and PlaySound returns
+                //  immediately after beginning the sound. To terminate an
+                //  asynchronously played waveform sound, call PlaySound with
+                //  pszSound set to NULL.
+                SND_ASYNC
+                // The pszSound parameter is a file name. If the file cannot be
+                //  found, the function plays the default sound unless the
+                //  SND_NODEFAULT flag is set.
+            |   SND_FILENAME
+                // If the driver is busy, return immediately without playing the sound.
+            |   SND_NOWAIT // this doesnt work either
+                // No default sound event is used
+            |   SND_NODEFAULT
+        );
+}
