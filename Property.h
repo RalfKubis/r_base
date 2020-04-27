@@ -336,13 +336,13 @@ inline void
 //
 #define R_PROPERTY_DEFAULT(    NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
     public : static TYPE                                                                            \
-        [[nodiscard]] NAME##_default()                                                              \
+        NAME##_default()                                                              \
             {                                                                                       \
                 return DEFAULT;                                                                     \
             }
 
 #define R_PROPERTY_DEFAULTC(   NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    public : [[nodiscard]] static TYPE                                                              \
+    public : static TYPE                                                              \
         NAME##_default()                                                                            \
             {                                                                                       \
                 return TYPE();                                                                      \
