@@ -40,10 +40,13 @@ class Error
             return *this;
         }
 
-    public : Error(Log && l)
+    public : Error(Log && l, ::std::string const message = {})
         :   m_log(::std::move(l))
         {
             m_log.level_raise_to(Log::Level::FAILURE);
+
+            if (!message.empty())
+                m_log.message(message);
         }
 
     public : Error(::uuids::uuid id)
@@ -134,6 +137,12 @@ throw_on_error(
 
 
 
+void
+throw_on_error_win(
+    bool              is_ok
+,   ::uuids::uuid     trace_id
+);
+
 using Status = ::tl::expected<bool, ::nsBase::Error>;
 
 inline ::tl::expected<bool, ::nsBase::Error> &
@@ -154,23 +163,6 @@ inline ::tl::expected<bool, ::nsBase::Error> &
 ////////////////////////////////////////////////////////////////////////////////
 // Macros
 ////////////////////////////////////////////////////////////////////////////////
-
-/// macro that executes a command. if the return value is zero it returns an error, otherwise OK
-inline ::nsBase::Status
-    MCCK(bool exp)
-        {
-            if (exp)
-                return {};
-
-            return ::tl::unexpected<::nsBase::Error>{::nsBase::Log{u8"1dcec28a-315e-4a34-9ab0-a76ecfe0205b"_uuid}};
-        }
-
-/// macro that returns the Status-argument from the current function if it failed
-#define MC_RETURN(RES) do{{ auto r = RES; if(!r) return r; }}while(0)
-
-/// macro that converts an errno-code to the Status-code
-#define MC_E2C(E) ((int)(E) + 0x1000)
-
 
 
 /** This macro can be used to break out of a breakable scope
@@ -199,12 +191,6 @@ inline ::nsBase::Status
 
 #define BreakOnFail2(RETVAL) \
     {if (!RETVAL) break; else ((void)0);}
-
-//#define BreakOnMyFail \
-//    {if (failed()) break; else ((void)0);}
-//
-//#define ReturnOnMyFail \
-//    {if (failed()) return; else ((void)0);}
 
 
 /** This macro can be used to set a Status object with the identifier retVal
@@ -343,13 +329,13 @@ inline ::nsBase::Status
 
 /**
     Mark code that is noy yet implemented.
-    If that code is executed, a critical log is issued.
+    If that code is executed, an error is thrown.
     \param id Creator-id.
 */
 inline void
     NYI(::uuids::uuid id)
         {
-            ::nsBase::Error{::nsBase::Log{id}.critical().message("Feature not implemented")};
+            throw ::nsBase::Error{::nsBase::Log{id}.critical().message("Feature not implemented")};
         }
 
 
@@ -375,4 +361,4 @@ inline bool
     failWin(::nsBase::Status const & s)
         {
             return !bool(s);
-}
+        }

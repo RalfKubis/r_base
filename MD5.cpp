@@ -6,9 +6,6 @@
 #include "r_base/Log.h"
 #include "r_base/string.h"
 
-#include <QFile>
-#include <QByteArray>
-
 #include <memory>
 #include <fstream>
 
@@ -16,7 +13,7 @@
 namespace nsBase
 {
 
-std::string
+::std::string
 to_string(
     MD5 const & md5
 )

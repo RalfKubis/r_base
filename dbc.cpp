@@ -40,8 +40,6 @@ dbc_callbackSet(
 
 #if DBC_ENABLE
 
-
-
 namespace
 {
 bool

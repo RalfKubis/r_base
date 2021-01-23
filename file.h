@@ -6,8 +6,7 @@
 #include <functional>
 #include <vector>
 #include <string>
-
-#include <QByteArray>
+#include <fstream>
 
 #include "r_base/filesystem.h"
 #include "r_base/Error.h"
@@ -46,23 +45,14 @@ void
             ::fs::path const & file_path
         );
 
-// throws
-QByteArray
-    file_read_all_q(
-            ::fs::path const & file_path
-        );
+
 
 // throws
 void
     file_write_all(
-            ::fs::path    const & file_path
-        ,   ::std::string const & content
+            ::fs::path        const & file_path
+        ,   ::std::string     const & content
+        ,   ::std::ios_base::openmode mode = ::std::ios::binary | ::std::ios::trunc
         );
 
-// throws
-void
-    file_write_all(
-            ::fs::path    const & file_path
-        ,   QByteArray    const & content
-        );
 }

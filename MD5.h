@@ -100,7 +100,7 @@ class MD5
     Get the 32 character long hex-string-representation of the source MD5
     (128-bit) with upper-case letters.
 */
-std::string
+::std::string
     to_string(
             MD5 const & md5
         );

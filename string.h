@@ -12,15 +12,27 @@
 #include <cstddef>
 #include <type_traits>
 
-#include <QCoreApplication>
-#include <QByteArray>
-#include <QString>
-#include <QChar>
+
+namespace dingdong
+{
+template<typename T>
+::std::string
+    dingdong_to_string(
+            T const & t
+        )
+        {
+            using namespace ::nsBase;
+            using namespace ::std;
+
+            return to_string(t);
+        }
+}
+
 
 namespace nsBase
 {
 
-////////////////////////////////////////////////////////////////////////////////
+
 /**
     Conversion between various String types.
 
@@ -33,75 +45,6 @@ namespace nsBase
 
 
 
-
-////////////////////////////////////////////////////////////
-//  char* -> QString
-//
-inline QString const
-    C2Q(char const * const inValue)
-        {
-            return QString::fromUtf8(inValue);
-        }
-
-inline auto
-    operator "" _qs(
-            char16_t    const * c_str
-        ,   ::std::size_t       len
-        )
-        -> QString
-        {
-            return QString::fromUtf16(c_str);
-        }
-
-
-////////////////////////////////////////////////////////////
-//  QString -> *
-//
-
-// Note: Q2C needs to be a macro because the converted QByteArray returned by toUtf8()
-// is temporary and thus the const char* would be dangling after a function return.
-#define Q2C(inValue) \
-    (inValue).toUtf8().constData()
-
-
-/**
-    Convert a QString to a QByteArray.
-    The returned buffer is encoded in UTF-8.
-*/
-inline QByteArray const
-    Q2B( QString const & inValue )
-        {
-            return inValue.toUtf8();
-        }
-
-/**
-    Convert a QString to a ::std::string.
-    The returned string is encoded in UTF-8.
-*/
-inline ::std::string
-    Q2S(
-            QString const & inValue
-        )
-        {
-            return Q2C(inValue);
-        }
-
-
-
-////////////////////////////////////////////////////////////
-//  QByteArray -> *
-//
-inline ::std::string
-    B2S(
-            QByteArray const & ba
-        )
-        {
-            if (ba.isEmpty())
-                return {};
-
-            return { ba.constData(), static_cast<::std::string::size_type>(ba.size()) };
-        }
-
 ////////////////////////////////////////////////////////////
 //  ::std::string -> *
 //
@@ -111,24 +54,7 @@ inline char const *
             return inValue.c_str();
         }
 
-inline QString
-    S2Q(::std::string const & inValue)
-        {
-            return C2Q( inValue.c_str() );
-        }
 
-inline QByteArray
-    S2B(
-            ::std::string const & s
-        )
-        {
-            if (s.empty())
-                return {};
-
-            return { s.data(), int(s.size()) };
-        }
-
-////////////////////////////////////////////////////////////////////////////////
 /**
     Get a string that that results when all matches of a regular expression
     in a source string are replaced by a substitute.
@@ -148,7 +74,6 @@ inline QByteArray
         );
 
 
-////////////////////////////////////////////////////////////////////////////////
 /**
     Get a string that that results when the first occurrence of the
     'what string' in a source string is replaced by a substitute.
@@ -168,7 +93,6 @@ inline QByteArray
         );
 
 
-////////////////////////////////////////////////////////////////////////////////
 /**
     Get a string that that results when the all occurrences of the
     'what string' in a source string are replaced by a substitute.
@@ -188,7 +112,6 @@ inline QByteArray
         );
 
 
-////////////////////////////////////////////////////////////////////////////////
 /**
 
 */
@@ -199,7 +122,6 @@ inline QByteArray
         );
 
 
-////////////////////////////////////////////////////////////////////////////////
 /**
 
 */
@@ -211,7 +133,6 @@ inline QByteArray
         );
 
 
-////////////////////////////////////////////////////////////////////////////////
 /**
     Concatenate the elements of a collection into a single string using the
     provided delimiter.
@@ -250,6 +171,8 @@ joined(
     }
 
 
+
+
 template<
     typename Collection
 ,   typename ::std::enable_if_t<!::std::is_same<typename ::std::remove_cv<typename Collection::value_type>::type,::std::string>::value, int> = 0
@@ -267,20 +190,18 @@ joined(
         auto
             count = 0;
 
-        for (auto const & line : lines)
+        for (auto & line : lines)
         {
             if (count)
                 retVal += delimiter;
             count++;
 
-            retVal += to_string(line);
+            retVal += ::dingdong::dingdong_to_string(line);
         }
 
         return retVal;
     }
 
-
-////////////////////////////////////////////////////////////////////////////////
 
 auto
 escaped(
@@ -289,7 +210,6 @@ escaped(
     ->  ::std::string;
 
 
-////////////////////////////////////////////////////////////////////////////////
 // modifies input string, returns input
 inline ::std::string &
 trim_left_in_place(
@@ -310,7 +230,6 @@ trim_left_in_place(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
 inline ::std::string &
 trim_right_in_place(
     ::std::string & str
@@ -330,7 +249,6 @@ trim_right_in_place(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
 inline ::std::string &
 trim_in_place(
     ::std::string & str
@@ -340,7 +258,6 @@ trim_in_place(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
 // returns newly created strings
 inline ::std::string
 trim_right(
@@ -351,7 +268,6 @@ trim_right(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
 inline ::std::string
 trim_left(
     ::std::string str
@@ -361,7 +277,6 @@ trim_left(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
 inline ::std::string
 trim(
     ::std::string str
@@ -371,7 +286,6 @@ trim(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
 inline
 ::std::string
 to_lower(
@@ -392,7 +306,6 @@ to_lower(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
 inline
 ::std::string
 to_upper(
@@ -413,39 +326,6 @@ to_upper(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-template<class T>
-QString
-QString_number(
-    T value
-)
-{
-    return QString::number(value);
-}
-
-template<>
-inline
-QString
-QString_number<double>(
-    double value
-)
-{
-    return QString::number(value,'g',666);
-}
-
-template<>
-inline
-QString
-QString_number<float>(
-    float value
-)
-{
-    return QString_number<double>(value);
-}
-
-
-
-
 
 /** Encode a byte-sequence into a string representing
     each byte as two hexadecimal digits [0-9A-F].
@@ -454,7 +334,7 @@ void
     dataToHexString(
             unsigned char const * inBufferToEncode
         ,   unsigned int          inBufferToEncodeLen
-        ,   ::std::string         & outEncodedBuffer
+        ,   ::std::string       & outEncodedBuffer
         ,   bool                  inUseUpperCase
         );
 
@@ -466,8 +346,15 @@ The input-strings size must be an even number.
 */
 void
     hexStringToData(
-            unsigned char      * inBufferToDecodeTo
+            unsigned char        * inBufferToDecodeTo
         ,   ::std::string const  & inEncodedBuffer
         );
+
+
+inline ::std::string
+    append_with_separator(::std::string const & pre, ::std::string const & separator, ::std::string const & post)
+        {
+            return pre + (pre.empty() ? ::std::string{} : separator) + post;
+        }
 
 }

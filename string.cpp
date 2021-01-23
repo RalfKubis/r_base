@@ -241,7 +241,7 @@ dataToHexString(
     {
         *dst++ = dict[(*src >>  4)];
         *dst++ = dict[(*src & 0xf)];
-        src ++;
+        src++;
     }
 }
 

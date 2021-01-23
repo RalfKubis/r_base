@@ -20,9 +20,6 @@ namespace nsBase
 {
 
 
-/** This class provides methods for converting between binary data and
-    ASCII strings (uuencode) as well as computing checksums (CRC). */
-
 class MD5Coder
 {
     R_DTOR(MD5Coder);
@@ -41,7 +38,7 @@ class MD5Coder
     /** Append the next buffer to the checksum. */
     public : void
         merge(
-                void  const * buffer
+                void    const * buffer
             ,   ::std::size_t   buffer_len
             );
 

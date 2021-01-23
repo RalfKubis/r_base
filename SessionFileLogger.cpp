@@ -13,7 +13,7 @@ namespace nsBase
 
 namespace
 {
-std::unique_lock<::std::recursive_mutex>
+::std::unique_lock<::std::recursive_mutex>
     lock()
         {
             static ::std::atomic<::std::recursive_mutex*>

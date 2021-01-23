@@ -16,7 +16,7 @@ namespace
 {
 using t_handler = void(*)(int);
 
-std::map<int,t_handler>
+::std::map<int,t_handler>
     default_handlers;
 
 uuid
@@ -39,7 +39,7 @@ uuid
             }
         }
 
-std::string
+::std::string
     signal_to_string(
             int sig
         )
@@ -59,7 +59,7 @@ std::string
             }
         }
 
-std::string
+::std::string
     signal_to_description(
             int sig
         )
@@ -118,7 +118,7 @@ install_signal_handler()
                 int sig
             )
             {
-                if(auto old = ::std::signal(sig, signal_handler))
+                if (auto old = ::std::signal(sig, signal_handler))
                 {
                     default_handlers[sig] = old;
                 }

@@ -9,6 +9,7 @@
 #include <map>
 #include <algorithm>
 #include <iterator>
+#include <optional>
 
 
 namespace nsBase
@@ -202,6 +203,19 @@ erase_if(
     }
 }
 
+template<typename ContainerT, typename PredicateT>
+::std::optional<typename ContainerT::value_type>
+find_if(
+    ContainerT       & container
+,   PredicateT const & predicate
+)
+{
+    if (auto it = ::std::find_if(container.begin(), container.end(), predicate); it!=container.end())
+        return *it;
+    return {};
+}
+
+
 #define r_value_type(container) ::std::remove_reference<decltype(container)>::type::value_type
 
 
@@ -231,6 +245,17 @@ append(
 )
 {
     to.insert(::std::end(to), ::std::begin(from), ::std::end(from));
+}
+
+
+template<class ContainerTo, class ContainerFrom>
+void
+move(
+    ContainerTo     & to
+,   ContainerFrom  && from
+)
+{
+    ::std::move(::std::begin(from), ::std::end(from), ::std::back_inserter(to));
 }
 
 
@@ -264,4 +289,43 @@ typename ::std::vector<T>::iterator
                 );
         }
 
+
+// get the tail of a contiguous collection (path) if it has the given prefix, otherwise an empty optional
+template<typename Collection>
+::std::optional<Collection>
+    tail_if(
+            Collection const & prefix
+        ,   Collection const & path
+        )
+        {
+            auto it_prefix = prefix.begin();
+            auto it_path   = path.begin();
+
+            //TODO: use ::std::mismatch
+            for(;;)
+            {
+                if (it_prefix==prefix.end())
+                    break;
+
+                if (it_path==path.end())
+                    return {};
+
+                if (*it_path!=*it_prefix)
+                    return {};
+
+                ++it_prefix;
+                ++it_path;
+            }
+
+            Collection
+                tail;
+
+            ::std::for_each(
+                    it_path
+                ,   path.end()
+                ,   [&](auto & s){tail.emplace_back(s);}
+                );
+
+            return tail;
+        }
 }

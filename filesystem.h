@@ -13,8 +13,6 @@
 #include <optional>
 #include <string>
 
-#include <QString>
-
 #include <r_base/string.h>
 
 
@@ -41,23 +39,7 @@ inline ::fs::path
             ::std::string const & spath
         )
         {
-            return ::fs::u8path(spath);
-        }
-
-inline QString
-    P2Q(
-            ::fs::path const & path
-        )
-        {
-            return ::nsBase::S2Q(P2S(path));
-        }
-
-inline ::fs::path
-    Q2P(
-            QString const & qpath
-        )
-        {
-            return S2P(::nsBase::Q2S(qpath));
+            return ::fs::u8path(spath).make_preferred();
         }
 
 
@@ -68,13 +50,14 @@ namespace std{ namespace filesystem
 namespace std{namespace experimental{ namespace filesystem
 #endif
 {
-inline QString
-    S2Q(
-            ::fs::path const & path
-        )
+inline path
+    operator+(path const & a, path const & b)
         {
-            return ::nsBase::S2Q(path.u8string());
+            auto p{a};
+            p += b;
+            return p;
         }
+
 
 inline ::std::size_t
     size(::fs::path const & p)
@@ -99,7 +82,7 @@ inline ::std::optional<::fs::path>
             auto it_path   = path.begin();
 
             //TODO: use ::std::mismatch
-            for(;;)
+            for (;;)
             {
                 if (it_prefix==prefix.end())
                     break;
@@ -125,6 +108,35 @@ inline ::std::optional<::fs::path>
 
             return tail;
         }
+
+void
+    safe_rename(
+            ::fs::path const & from
+        ,   ::fs::path const & to
+        );
+
+
+void
+    safe_remove(
+            ::fs::path const & path
+        );
+
+void
+    safe_remove_all(
+            ::fs::path const & path
+        );
+
+void
+    safe_remove_all(
+            ::fs::path const & path
+        );
+
+
+::fs::path
+    slash_format(
+            ::fs::path const & path
+        );
+
 
 #ifdef _WIN32
 }}

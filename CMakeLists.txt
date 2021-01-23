@@ -1,16 +1,8 @@
-﻿set(
-        target
-        r_base
-    )
-
+﻿r_target(r_base)
 
 ################################################################################
 #   external
 ################################################################################
-
-r_qt_find_packages(
-        Qt5Core
-    )
 
 
 ################################################################################
@@ -41,7 +33,7 @@ r_target_add_defaults(
 target_link_libraries(
         ${target}
     PUBLIC
-        Qt5::Core
+        ${META_PROJECT_NAME}::fmt
     )
 
 if ( CMAKE_HOST_UNIX )
@@ -50,6 +42,17 @@ if ( CMAKE_HOST_UNIX )
             ${target}
         PRIVATE
             uuid
+        )
+
+endif()
+
+
+if ( CMAKE_HOST_WIN32 )
+
+    target_link_libraries(
+            ${target}
+        PRIVATE
+            Psapi
         )
 
 endif()

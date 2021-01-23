@@ -1,11 +1,10 @@
 ﻿#pragma once
 /* Copyright (C) Ralf Kubis */
 
-// TODO: add getters like: T MyClass::get() &&
-// to prevent dangling references if getters get called on temporaries
-// care with range for loops
 
 #include "r_base/decl.h"
+
+#include <type_traits>
 
 
 namespace R_fallback
@@ -84,6 +83,9 @@ inline void
         When used, the corresponding parameter get this value as type qualifier.
         This could be 'mutable' or 'const'.
 
+    R
+        When used, a reference is stored.
+
     S
         When used, the corresponding parameter specifies a user defined
         set-method.
@@ -105,7 +107,7 @@ inline void
        [,   SETHOOK]    // when S is used
         )
 */
-#define R_PROPERTY_FIELD(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
+#define R_PROPERTY_FIELD_D(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
                                                                                 \
     private : class property_##NAME                                             \
         {                                                                       \
@@ -117,7 +119,7 @@ inline void
                                                                                 \
             public :                                                            \
                 property_##NAME()                                               \
-                    :   mValue( defaultValue() )                                \
+                    :   mValue(defaultValue())                                  \
                     {                                                           \
                     }                                                           \
                                                                                 \
@@ -125,7 +127,7 @@ inline void
                 property_##NAME(                                                \
                         value_type const & inOther                              \
                     )                                                           \
-                    :   mValue( inOther )                                       \
+                    :   mValue(inOther)                                         \
                     {                                                           \
                     }                                                           \
                                                                                 \
@@ -165,7 +167,7 @@ inline void
         private :
 
 
-#define R_PROPERTY_FIELD2(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
+#define R_PROPERTY_FIELD(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
                                                                                 \
     private : class property_##NAME                                             \
         {                                                                       \
@@ -175,18 +177,17 @@ inline void
             private : value_type                                                \
                 mValue;                                                         \
                                                                                 \
-            R_DTOR(property_##NAME) = default;                                  \
-            R_CTOR(property_##NAME) = default;                                  \
-            R_CCPY(property_##NAME) = default;                                  \
-            R_CMOV(property_##NAME) = default;                                  \
-            R_COPY(property_##NAME) = default;                                  \
-            R_MOVE(property_##NAME) = default;                                  \
+            public : template<class ... Constructor_args>                       \
+                property_##NAME(Constructor_args&& ... args)                    \
+                    :   mValue(args...)                                         \
+                    {                                                           \
+                    }                                                           \
                                                                                 \
             public :                                                            \
                 property_##NAME(                                                \
-                        value_type && val                                       \
+                        value_type const & inOther                              \
                     )                                                           \
-                    :   mValue(::std::move(val))                                  \
+                    :   mValue(inOther)                                         \
                     {                                                           \
                     }                                                           \
                                                                                 \
@@ -219,474 +220,535 @@ inline void
             property_##NAME##_type = TYPE;                                      \
         private :
 
+
+#define R_PROPERTY_FIELD2(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
+                                                                                \
+    private : class property_##NAME                                             \
+        {                                                                       \
+            public : using                                                      \
+                value_type = TYPE;                                              \
+                                                                                \
+            private : value_type                                                \
+                mValue;                                                         \
+                                                                                \
+            R_DTOR(property_##NAME) = default;                                  \
+            R_CCPY(property_##NAME) = default;                                  \
+            R_CMOV(property_##NAME) = default;                                  \
+            R_COPY(property_##NAME) = default;                                  \
+            R_MOVE(property_##NAME) = default;                                  \
+                                                                                \
+            public : template<class ... Constructor_args>                       \
+                property_##NAME(Constructor_args&& ... args)                    \
+                    :   mValue(args...)                                         \
+                    {                                                           \
+                    }                                                           \
+                                                                                \
+            public :                                                            \
+                property_##NAME(                                                \
+                        value_type && val                                       \
+                    )                                                           \
+                    :   mValue(::std::move(val))                                \
+                    {                                                           \
+                    }                                                           \
+                                                                                \
+            public : value_type &                                               \
+                operator*()                                                     \
+                    {                                                           \
+                        return mValue;                                          \
+                    }                                                           \
+                                                                                \
+            public : value_type const &                                         \
+                operator*() const                                               \
+                    {                                                           \
+                        return mValue;                                          \
+                    }                                                           \
+                                                                                \
+            public : value_type *                                               \
+                operator->()                                                    \
+                    {                                                           \
+                        return &mValue;                                         \
+                    }                                                           \
+                                                                                \
+            public : value_type const *                                         \
+                operator->() const                                              \
+                    {                                                           \
+                        return &mValue;                                         \
+                    }                                                           \
+        }                                                                       \
+            QUALIFIER m_##NAME;                                                 \
+        public : using                                                          \
+            property_##NAME##_type = TYPE;                                      \
+        private :
+
+
+#define R_PROPERTY_FIELD_R(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
+                                                                                \
+    private : class property_##NAME                                             \
+        {                                                                       \
+            static_assert(!::std::is_reference_v<TYPE>, "must not be a reference"); \
+                                                                                \
+            public : using                                                      \
+                value_type = TYPE;                                              \
+                                                                                \
+            public : using                                                      \
+                value_wrapper_type = ::std::reference_wrapper<TYPE>;            \
+                                                                                \
+            private : value_wrapper_type                                        \
+                mValue;                                                         \
+                                                                                \
+            R_DTOR(property_##NAME) = default;                                  \
+            R_CTOR(property_##NAME) = delete;                                   \
+            R_CCPY(property_##NAME) = default;                                  \
+            R_CMOV(property_##NAME) = default;                                  \
+            R_COPY(property_##NAME) = default;                                  \
+            R_MOVE(property_##NAME) = default;                                  \
+                                                                                \
+            public :                                                            \
+                property_##NAME(                                                \
+                        value_type & val                                        \
+                    )                                                           \
+                    :   mValue{val}                                             \
+                    {                                                           \
+                    }                                                           \
+                                                                                \
+            public : value_type &                                               \
+                operator*()                                                     \
+                    {                                                           \
+                        return mValue;                                          \
+                    }                                                           \
+                                                                                \
+            public : value_type const &                                         \
+                operator*() const                                               \
+                    {                                                           \
+                        return mValue.get();                                    \
+                    }                                                           \
+                                                                                \
+            public : value_type *                                               \
+                operator->()                                                    \
+                    {                                                           \
+                        return &(mValue.get());                                 \
+                    }                                                           \
+                                                                                \
+            public : value_type const *                                         \
+                operator->() const                                              \
+                    {                                                           \
+                        return &(mValue.get());                                 \
+                    }                                                           \
+        }                                                                       \
+            QUALIFIER m_##NAME;                                                 \
+        public : using                                                          \
+            property_##NAME##_type = TYPE;                                      \
+        private :
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //  GET
 //
-#define R_PROPERTY_GET_(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    public :  TYPE const &                                                            \
-        NAME() const                                                                                \
-            {                                                                                       \
-                return *m_##NAME;                                                                   \
+#define R_PROPERTY_GET_(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    public :  TYPE const &                                                                                  \
+        NAME() const                                                                                        \
+            {                                                                                               \
+                return *m_##NAME;                                                                           \
             }
 
-#define R_PROPERTY_GET_m(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    public :  TYPE &                                                                  \
-        NAME##_mutable()                                                                            \
-            {                                                                                       \
-                return *m_##NAME;                                                                   \
+#define R_PROPERTY_GET_m(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    public :  TYPE &                                                                                        \
+        NAME##_mutable()                                                                                    \
+            {                                                                                               \
+                return *m_##NAME;                                                                           \
             }
 
-#define R_PROPERTY_GET_h(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    public : TYPE                                                                     \
-        NAME() const                                                                                \
-            {                                                                                       \
-                return GETHOOK();                                                                   \
+#define R_PROPERTY_GET_h(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    public : TYPE                                                                                           \
+        NAME() const                                                                                        \
+            {                                                                                               \
+                return GETHOOK();                                                                           \
             }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //  SET
 //
-#define R_PROPERTY_SET_(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    ACCESSOR : void                                                                                 \
-        NAME##_assign(                                                                              \
-                TYPE const & inValue                                                                \
-            )                                                                                       \
-            {                                                                                       \
-                 *m_##NAME = inValue;                                                               \
-                                                                                                    \
-                using namespace R_fallback;                                                         \
-                hash_of_memory_state_clear();                                                       \
-            }                                                                                       \
-                                                                                                    \
-    ACCESSOR : void                                                                                 \
-        NAME##_assign(                                                                              \
-                TYPE && inValue                                                                     \
-            )                                                                                       \
-            {                                                                                       \
-                *m_##NAME = ::std::move(inValue);                                                   \
-                                                                                                    \
-                using namespace R_fallback;                                                         \
-                hash_of_memory_state_clear();                                                       \
+#define R_PROPERTY_SET_(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    ACCESSOR : void                                                                                         \
+        NAME##_assign(                                                                                      \
+                TYPE const & inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                 *m_##NAME = inValue;                                                                       \
+                                                                                                            \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : void                                                                                         \
+        NAME##_assign(                                                                                      \
+                TYPE && inValue                                                                             \
+            )                                                                                               \
+            {                                                                                               \
+                *m_##NAME = ::std::move(inValue);                                                           \
+                                                                                                            \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
             }
 
 // copy and move
-#define R_PROPERTY_SET_2(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    ACCESSOR : void                                                                                 \
-        NAME##_assign(                                                                              \
-                TYPE const & inValue                                                                \
-            )                                                                                       \
-            {                                                                                       \
-                    *m_##NAME = inValue;                                                            \
-                                                                                                    \
-                    using namespace R_fallback;                                                     \
-                    hash_of_memory_state_clear();                                                   \
-            }                                                                                       \
-                                                                                                    \
-    ACCESSOR : void                                                                                 \
-        NAME##_assign(                                                                              \
-                TYPE && inValue                                                                     \
-            )                                                                                       \
-            {                                                                                       \
-                     *m_##NAME = ::std::move(inValue);                                                \
-                                                                                                    \
-                     using namespace R_fallback;                                                    \
-                     hash_of_memory_state_clear();                                                  \
+#define R_PROPERTY_SET_2(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  ) \
+    ACCESSOR : void                                                                                         \
+        NAME##_assign(                                                                                      \
+                TYPE const & inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                    *m_##NAME = inValue;                                                                    \
+                                                                                                            \
+                    using namespace R_fallback;                                                             \
+                    hash_of_memory_state_clear();                                                           \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : void                                                                                         \
+        NAME##_assign(                                                                                      \
+                TYPE && inValue                                                                             \
+            )                                                                                               \
+            {                                                                                               \
+                     *m_##NAME = ::std::move(inValue);                                                      \
+                                                                                                            \
+                     using namespace R_fallback;                                                            \
+                     hash_of_memory_state_clear();                                                          \
             }
 
 // move
-#define R_PROPERTY_SET_3(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-                                                                                                    \
-    ACCESSOR : void                                                                                 \
-        NAME##_assign(                                                                              \
-                TYPE && inValue                                                                     \
-            )                                                                                       \
-            {                                                                                       \
-                     *m_##NAME = ::std::move(inValue);                                                \
-                                                                                                    \
-                     using namespace R_fallback;                                                    \
-                     hash_of_memory_state_clear();                                                  \
+#define R_PROPERTY_SET_3(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  ) \
+                                                                                                            \
+    ACCESSOR : void                                                                                         \
+        NAME##_assign(                                                                                      \
+                TYPE && inValue                                                                             \
+            )                                                                                               \
+            {                                                                                               \
+                     *m_##NAME = ::std::move(inValue);                                                      \
+                                                                                                            \
+                     using namespace R_fallback;                                                            \
+                     hash_of_memory_state_clear();                                                          \
             }
 
-#define R_PROPERTY_SET_3h(     NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    ACCESSOR : void                                                                                 \
-        NAME##_assign(                                                                              \
-                TYPE && inValue                                                                     \
-            )                                                                                       \
-            {                                                                                       \
-                SETHOOK(::std::move(inValue));                                                        \
-                using namespace R_fallback;                                                         \
-                hash_of_memory_state_clear();                                                       \
+#define R_PROPERTY_SET_3h(     NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    ACCESSOR : void                                                                                         \
+        NAME##_assign(                                                                                      \
+                TYPE && inValue                                                                             \
+            )                                                                                               \
+            {                                                                                               \
+                SETHOOK(::std::move(inValue));                                                              \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
             }
 
-#define R_PROPERTY_SET_h(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    ACCESSOR : void                                                                                 \
-        NAME##_assign(                                                                              \
-                TYPE const & inValue                                                                \
-            )                                                                                       \
-            {                                                                                       \
-                SETHOOK(inValue);                                                                   \
-                using namespace R_fallback;                                                         \
-                hash_of_memory_state_clear();                                                       \
+#define R_PROPERTY_SET_h(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    ACCESSOR : void                                                                                         \
+        NAME##_assign(                                                                                      \
+                TYPE const & inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                SETHOOK(inValue);                                                                           \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
             }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //  DEFAULT
 //
-#define R_PROPERTY_DEFAULT(    NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    public : static TYPE                                                                            \
-        NAME##_default()                                                              \
-            {                                                                                       \
-                return DEFAULT;                                                                     \
+#define R_PROPERTY_DEFAULT(    NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    public : static TYPE                                                                                    \
+        [[nodiscard]] NAME##_default()                                                                      \
+            {                                                                                               \
+                return DEFAULT;                                                                             \
             }
 
-#define R_PROPERTY_DEFAULTC(   NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    public : static TYPE                                                              \
-        NAME##_default()                                                                            \
-            {                                                                                       \
-                return TYPE();                                                                      \
+#define R_PROPERTY_DEFAULTC(   NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    public : [[nodiscard]] static TYPE                                                                      \
+        NAME##_default()                                                                                    \
+            {                                                                                               \
+                return {};                                                                                  \
             }
 
 ////////////////////////////////////////////////////////////////////////////////
-#define R_PROPERTY_CLEAR(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
-    ACCESSOR : void                                                                                 \
-        NAME##_clear()                                                                              \
-            {                                                                                       \
-                NAME##_assign( NAME##_default() );                                                  \
+#define R_PROPERTY_CLEAR(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    ACCESSOR : void                                                                                         \
+        NAME##_clear()                                                                                      \
+            {                                                                                               \
+                NAME##_assign( NAME##_default() );                                                          \
             }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-#define R_PROPERTY_ISDEF(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
+#define R_PROPERTY_ISDEF(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
 #define R_PROPERTY_ADGS(       NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK                ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
         R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
         R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )
 
 #define R_PROPERTY_DGS(        NAME    ,TYPE               ,DEFAULT    ,GETHOOK                ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
         R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
         R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,SETHOOK    )
 
 #define R_PROPERTY_DS(         NAME    ,TYPE               ,DEFAULT                            ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,SETHOOK    )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,SETHOOK    )   \
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,SETHOOK    )   \
         R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,SETHOOK    )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,SETHOOK    )
 
 #define R_PROPERTY_DG(         NAME    ,TYPE               ,DEFAULT    ,GETHOOK                            )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,0          )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,0          )   \
         R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,0          )   \
         R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,0          )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,           ,0          )
 
 #define R_PROPERTY_D(          NAME    ,TYPE               ,DEFAULT                                        )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,0          )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,0          )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,0          )   \
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,0          )   \
         R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,0          )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,           ,0          )
 
 #define R_PROPERTY_ADS(        NAME    ,TYPE   ,ACCESSOR   ,DEFAULT                            ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,SETHOOK    )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,SETHOOK    )   \
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,SETHOOK    )   \
         R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,SETHOOK    )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,SETHOOK    )
 
 #define R_PROPERTY_ADG(        NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK                            )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,0          )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,0          )   \
         R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,0          )   \
         R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,0          )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,           ,0          )
 
 #define R_PROPERTY_AD(         NAME    ,TYPE   ,ACCESSOR   ,DEFAULT                                        )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,0          )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,0          )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,0          )   \
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,0          )   \
         R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,0          )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,           ,0          )
 
 #define R_PROPERTY_AGS(        NAME    ,TYPE   ,ACCESSOR               ,GETHOOK                ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )   \
-        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )   \
-        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,SETHOOK    )
 
 #define R_PROPERTY_GS(         NAME    ,TYPE                           ,GETHOOK                ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )   \
-        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )   \
-        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,SETHOOK    )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,SETHOOK    )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,SETHOOK    )
 
 #define R_PROPERTY_S(          NAME    ,TYPE                                                   ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,SETHOOK    )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,SETHOOK    )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,SETHOOK    )   \
-        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,SETHOOK    )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,SETHOOK    )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,SETHOOK    )
 
 #define R_PROPERTY_G(          NAME    ,TYPE                           ,GETHOOK                            )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,0          )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,0          )   \
-        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,0          )   \
-        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,0          )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,           ,0          )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,           ,0          )
 
 #define R_PROPERTY_(           NAME    ,TYPE                                                               )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
 
 #define R_PROPERTY_M(          NAME    ,TYPE                                                               )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
 
 #define R_PROPERTY_2(          NAME    ,TYPE                                                               )   \
-        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_SET_2   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )
+        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_SET_2   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
 
 #define R_PROPERTY_3(          NAME    ,TYPE                                                               )   \
-        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_SET_3   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )
+        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_SET_3   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
 
 #define R_PROPERTY_3M(         NAME    ,TYPE                                                               )   \
-        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_SET_3   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )
+        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_SET_3   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
 
 #define R_PROPERTY_3AM(        NAME    ,TYPE   ,ACCESSOR                                                   )   \
-        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_SET_3   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,0          )
+        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_SET_3   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )
 
 #define R_PROPERTY_3MS(        NAME    ,TYPE                                                   ,SETHOOK    )   \
-        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_SET_3h  (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_SET_3h  (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,SETHOOK    )   \
 
 #define R_PROPERTY_AS(         NAME    ,TYPE   ,ACCESSOR                                       ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,SETHOOK    )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,SETHOOK    )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,SETHOOK    )   \
-        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,SETHOOK    )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,SETHOOK    )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,SETHOOK    )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,SETHOOK    )
 
 #define R_PROPERTY_AG(         NAME    ,TYPE   ,ACCESSOR               ,GETHOOK                            )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,0          )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,0          )   \
-        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,0          )   \
-        R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,0          )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,           ,0          )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,0          )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,           ,0          )
 
 #define R_PROPERTY_A(          NAME    ,TYPE   ,ACCESSOR                                                   )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,0          )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,           ,0          )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )
+
+#define R_PROPERTY_MR(         NAME    ,TYPE                                                               )   \
+        R_PROPERTY_FIELD_R (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
+// TYPE was not copyable
+//      R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
 
 ////////////////////////////////////////////////////////////////////////////////
 #define R_PROPERTY_ADGQS(      NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )
 
 #define R_PROPERTY_DGQS(       NAME    ,TYPE               ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK    )
 
 #define R_PROPERTY_DQS(        NAME    ,TYPE               ,DEFAULT                ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )
 
 #define R_PROPERTY_DGQ(        NAME    ,TYPE               ,DEFAULT    ,GETHOOK    ,QUALIFIER              )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
         R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
         R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )
 
 #define R_PROPERTY_DQ(         NAME    ,TYPE               ,DEFAULT                ,QUALIFIER              )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
         R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,DEFAULT    ,0          ,QUALIFIER  ,0          )
 
 #define R_PROPERTY_ADQS(       NAME    ,TYPE   ,ACCESSOR   ,DEFAULT                ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,SETHOOK    )
 
 #define R_PROPERTY_ADGQ(       NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER              )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
         R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
         R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,0          )
 
 #define R_PROPERTY_ADQ(        NAME    ,TYPE   ,ACCESSOR   ,DEFAULT                ,QUALIFIER              )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_FIELD_D (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
         R_PROPERTY_DEFAULT (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
         R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,0          )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,0          ,QUALIFIER  ,0          )
 
 #define R_PROPERTY_AGQS(       NAME    ,TYPE   ,ACCESSOR               ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )
 
 #define R_PROPERTY_GQS(        NAME    ,TYPE                           ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,SETHOOK    )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,SETHOOK    )
 
 #define R_PROPERTY_QS(         NAME    ,TYPE                                       ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,SETHOOK    )
 
 #define R_PROPERTY_GQ(         NAME    ,TYPE                           ,GETHOOK    ,QUALIFIER              )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )   \
-        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )   \
-        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,GETHOOK    ,QUALIFIER  ,0          )
 
 #define R_PROPERTY_Q(          NAME    ,TYPE                                       ,QUALIFIER              )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,0          )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,0          )   \
-        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,0          )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,TYPE()     ,0          ,QUALIFIER  ,0          )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,0          )
 
 #define R_PROPERTY_AQS(        NAME    ,TYPE   ,ACCESSOR                           ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,SETHOOK    )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_SET_h   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,SETHOOK    )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,SETHOOK    )
 
 #define R_PROPERTY_AGQ(        NAME    ,TYPE   ,ACCESSOR               ,GETHOOK    ,QUALIFIER              )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )   \
-        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )   \
-        R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,GETHOOK    ,QUALIFIER  ,0          )
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_GET_h   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,0          )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,GETHOOK    ,QUALIFIER  ,0          )
 
 #define R_PROPERTY_AQ(         NAME    ,TYPE   ,ACCESSOR                           ,QUALIFIER              )   \
-        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,0          )   \
-        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,0          )   \
-        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,0          )   \
-        R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,0          )   \
-        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,TYPE()     ,0          ,QUALIFIER  ,0          )
-
-
-
-namespace nsBase
-{
-
-/**
-Properties (Class Members) quick debugger
-
-A lot of the existing code lacks of encapsulation for class members.
-Besides improving general code quality, this encapsulation also enables
-debuggees to set a conditional breakpoint into the set-method and catch the
-client which writes the designated value.
-
-In order not to have to change all the code to use common accessors in the
-moment when the code is debugged, one can enclose the unprotected member
-by this class.
-
-It provides operators that are compatible to direct access.
-
-If interested in setting a breakpoint, one also needs to derive and override
-the targeted operator to be able to place the actual breakpoint.
-*/
-template<
-    typename T_ValueType
->
-class Member
-{
-    private : T_ValueType
-        mValue;
-
-    public : explicit
-        Member(
-                T_ValueType const & inInitialValue
-            )
-            :   mValue ( inInitialValue )
-            {
-            }
-
-    /**
-        Read the currently stored value.
-
-        \return
-        The currently stored value.
-    */
-    public :
-        operator T_ValueType() const
-            {
-                return mValue;
-            }
-
-    /**
-        Write the given value.
-
-        \param  inValue   The value to be stored.
-    */
-    public :  T_ValueType const
-        operator=(
-                T_ValueType const & inValue
-            )
-            {
-                mValue = inValue;
-                return mValue;
-            }
-};
-
-} // ns
+        R_PROPERTY_FIELD   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_DEFAULTC(   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_SET_    (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,QUALIFIER  ,0          )

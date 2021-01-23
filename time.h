@@ -7,15 +7,22 @@
 #include <string>
 #include <cstdint>
 #include <ctime>
+#include <optional>
 
 
-namespace nsBase::time
+namespace nsBase{namespace time
 {
 
 using
     time_point_t = ::std::chrono::time_point<::std::chrono::system_clock>;
 using
+    time_point_optional_t = ::std::optional<time_point_t>;
+
+using
     time_duration_t = ::std::chrono::duration<::std::chrono::system_clock>;
+using
+    time_duration_optional_t = ::std::optional<time_duration_t>;
+
 
 time_point_t
     now();
@@ -33,6 +40,11 @@ time_point_t
             ::std::string const & s
         );
 
+::std::optional<time_point_t>
+    time_from_string_if(
+            ::std::string const & s
+        );
+
 time_point_t
     time_from_seconds_and_micros(
             ::std::int64_t seconds
@@ -47,17 +59,19 @@ inline int
         {
             return t.tm_year + 1900;
         }
-}
+}}
 
 
-namespace std::chrono
+namespace std{namespace chrono
 {
+
 // convert into a (UTC or Local) time string YYYY-MM-DD HH:mm:ss[.mmm]
 ::std::string
     to_string(
             time_point<system_clock> const & tp
         ,   bool                             as_utc_time = true
         ,   bool                             with_millis = true
+        ,   ::std::string            const & format      = "%Y-%m-%d %H:%M:%S"
         );
 
 // convert into calendar date and time
@@ -67,4 +81,4 @@ namespace std::chrono
         ,   bool                             as_utc_time = true
         );
 
-}
+}}

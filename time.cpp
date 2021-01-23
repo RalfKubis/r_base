@@ -1,6 +1,6 @@
 ﻿/* Copyright (C) Ralf Kubis */
-#include "r_base/time.h"
 
+#include "r_base/time.h"
 #include "r_base/string.h"
 
 #include <algorithm>
@@ -33,14 +33,13 @@ to_string(
     time_point<system_clock> const & tp
 ,   bool                             as_utc_time
 ,   bool                             with_millis
+,   ::std::string            const & format
 )
 {
     auto
         tm = to_tm(tp, as_utc_time);
     auto
         duration = tp.time_since_epoch();
-    auto
-        format = "%Y-%m-%d %H:%M:%S";
 
 #if 0 // ::std::put_time() is not supported by gcc < 5
 
@@ -54,13 +53,12 @@ to_string(
 
     ::std::string
         buf(64,'\0');
-
-    buf.resize(::std::strftime(
-            const_cast<char*>(buf.data())
-        ,   buf.size()
-        ,   format
-        ,   &tm
-        ));
+        buf.resize(::std::strftime(
+                const_cast<char*>(buf.data())
+            ,   buf.size()
+            ,   format.c_str()
+            ,   &tm
+            ));
 
     if (with_millis)
     {
@@ -169,7 +167,8 @@ struct Tm
                 return timestamp_local + seconds_utc_to_local + offset;
             }
 
-    time_point_t to_time_point()
+    time_point_t
+        to_time_point()
                 {
                     auto timestamp_utc = timegm(this);
 
@@ -227,6 +226,18 @@ time_from_string(
             ).to_time_point();
 
     return t;
+}
+
+
+::std::optional<time_point_t>
+time_from_string_if(
+    ::std::string const & s
+)
+{
+    if (s.empty())
+        return {};
+
+    return time_from_string(s);
 }
 
 

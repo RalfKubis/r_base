@@ -6,6 +6,8 @@
 #include "r_base/dbc.h"
 #include "r_base/filesystem.h"
 #include "r_base/uuid.h"
+#include "r_base/time.h"
+#include "r_base/current.h"
 
 #include <optional>
 #include <string>
@@ -126,26 +128,6 @@ class  Log
 ////////////////////////////////////////////////////////////////////////////////
 /** \name Properties
 @{*/
-    public : static void
-        application_id_assign(
-                ::uuids::uuid const & id
-            );
-
-    public : static ::uuids::uuid
-        application_id();
-
-
-
-    public : static void
-        thread_session_id_assign(
-                ::uuids::uuid const & id
-            );
-
-    public : static ::uuids::uuid
-        thread_session_id();
-
-
-
     public : ::uuids::uuid
         id() const;
     public : Log &
@@ -248,43 +230,32 @@ class  Log
     public : Log &
         event(::uuids::uuid const &);
 
-    public : using
-        time_t = ::std::chrono::time_point<::std::chrono::system_clock>;
-
-    public : static time_t
-        current_time();
-    public : time_t
+    public : ::nsBase::time::time_point_t
         time() const;
     public : ::std::string
         time_as_string() const;
     public : Log &
         time_from_string(::std::string const &);
     public : Log &
-        time(time_t const &);
+        time(::nsBase::time::time_point_t const &);
 
 
     public : ::std::string
         host() const;
     public : Log &
         host(::std::string const &);
-    public : static ::std::string
-        current_host();
 
 
     public : ::std::string
         user() const;
     public : Log &
         user(::std::string const &);
-    public : static ::std::string
-        current_user();
 
 
     public : ::std::string
         thread() const;
     public : Log &
         thread(::std::string const &);
-    public : static ::std::string
-        current_thread();
 
 
     public : Log &
@@ -689,9 +660,6 @@ class  Log
 
         \param  inStream    The text to parse.
         \param  inFormat    The format of the text.
-
-        \return
-        The success status.
     */
     public : static ::std::optional<Log>
         deserialize(

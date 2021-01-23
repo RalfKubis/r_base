@@ -1,10 +1,10 @@
 ﻿#pragma once
 /* Copyright (C) Ralf Kubis */
 
-
 #include "r_base/decl.h"
-#include <optional>
 #include "r_base/Property.h"
+
+#include <optional>
 
 
 namespace nsBase
