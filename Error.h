@@ -41,25 +41,19 @@ class Error
         }
 
     public : Error(Log && l, ::std::string const message = {})
-        :   m_log(::std::move(l))
+        :   m_log{::std::move(l)}
         {
             m_log.level_raise_to(Log::Level::FAILURE);
 
+            if (m_log.ok())
+                m_log.status(Log::Status::INTERNAL);
+
             if (!message.empty())
-                m_log.message(message);
+                m_log(message);
         }
 
     public : Error(::uuids::uuid id)
         :   Error{Log{id}}
-        {
-        }
-
-    // required to write:
-    //   throw Error(Log(..).message(..))
-    // instead of
-    //   throw Error(::std::move(Log(..).message(..)))
-    public : Error(Log & l)
-        :   Error(::std::move(l))
         {
         }
 
@@ -70,7 +64,7 @@ class Error
 
                 try
                 {
-                    what_cache = u8"b25bdc13-2348-417a-bbae-9147b34539ed"s;
+                    what_cache = "b25bdc13-2348-417a-bbae-9147b34539ed"s;
                     what_cache = log().message_resolved();
                 }
                 catch(...)
@@ -96,6 +90,15 @@ class Error
             {
                 return m_log;
             }
+
+    public : Log &
+        operator()(
+                ::std::string_view const & inValue
+            )
+            {
+                m_log("message", inValue);
+                return m_log;
+            }
 };
 
 
@@ -108,8 +111,8 @@ class Error
 */
 inline Error
 to_Error(
-    ::std::exception & e
-,   ::uuids::uuid      trace_id
+    ::std::exception  & e
+,   ::uuids::uuid       trace_id
 )
 {
     // in case e is ::nsBase::Error
@@ -120,7 +123,24 @@ to_Error(
     if (auto err = dynamic_cast<::tl::bad_expected_access<Error>*>(&e))
         return {::std::move(err->error().log_mutable().trace(trace_id))};
 
-    return {Log(trace_id).message(e.what()).trace(trace_id)};
+    return Log{trace_id}(e.what()).trace(trace_id).move();
+}
+
+inline Error
+copy_to_Error(
+    ::std::exception const & e
+,   ::uuids::uuid    trace_id
+)
+{
+    // in case e is ::nsBase::Error
+    if (auto err = dynamic_cast<Error const*>(&e))
+        return err->log().copy().trace(trace_id).move();
+
+    // in case e is ::tl::bad_expected_access<::nsBase::Error>
+    if (auto err = dynamic_cast<::tl::bad_expected_access<Error>const*>(&e))
+        return err->error().log().copy().trace(trace_id).move();
+
+    return Log(trace_id)(e.what()).trace(trace_id).move();
 }
 
 
@@ -143,7 +163,7 @@ throw_on_error_win(
 ,   ::uuids::uuid     trace_id
 );
 
-using Status = ::tl::expected<bool, ::nsBase::Error>;
+using StatusInfo = ::tl::expected<bool, ::nsBase::Error>;
 
 inline ::tl::expected<bool, ::nsBase::Error> &
     operator<<(
@@ -152,7 +172,7 @@ inline ::tl::expected<bool, ::nsBase::Error> &
         )
         {
             if (!src)
-                dst = ::tl::unexpected<Error>(Log{u8"f885c8e1-c749-4c8c-aa30-7a95d2638cf2"_uuid});
+                dst = ::tl::unexpected<Error>("f885c8e1-c749-4c8c-aa30-7a95d2638cf2"_log());
 
             return dst;
         }
@@ -268,7 +288,7 @@ inline ::tl::expected<bool, ::nsBase::Error> &
         if (true)                                                               \
         {                                                                       \
             (RETVAL) << ::tl::unexpected<::nsBase::Error>{::nsBase::Log{uuid}   \
-                                .att("code",::std::to_string(CODE))             \
+                                ("code",::std::to_string(CODE))             \
                             };                                                  \
                 );                                                              \
             break;                                                              \
@@ -281,16 +301,16 @@ inline ::tl::expected<bool, ::nsBase::Error> &
 
 
 /**
-    Compose an instance of Status which is ok() in case a given expression
+    Compose an instance of StatusInfo which is ok() in case a given expression
     evaluates to TRUE.
-    If the expression evaluates to FALSE, the returned Status object indicates
+    If the expression evaluates to FALSE, the returned StatusInfo object indicates
     an error.
 
     \param  uuid                    Identifier of the check.
     \param  expectedExpression      The expression to be checked.
     \param  message                 Additional message text.
 */
-inline ::nsBase::Status
+inline ::nsBase::StatusInfo
     CHECK(
             ::uuids::uuid id
         ,   bool          expectedExpression
@@ -304,16 +324,16 @@ inline ::nsBase::Status
 
 
 /**
-    Compose an instance of Status which is ok() in case a given expression
+    Compose an instance of StatusInfo which is ok() in case a given expression
     evaluates to TRUE.
-    If the expression evaluates to FALSE, the returned Status object indicates
+    If the expression evaluates to FALSE, the returned StatusInfo object indicates
     an error.
 
     \param  uuid                    Identifier of the check.
     \param  expectedExpression      The expression to be checked.
     \param  message                 Additional message text.
 */
-inline ::nsBase::Status
+inline ::nsBase::StatusInfo
     CHECK2(
             ::uuids::uuid         id
         ,   bool                  expectedExpression
@@ -323,7 +343,7 @@ inline ::nsBase::Status
             if (expectedExpression)
                 return {};
 
-            return ::tl::unexpected<::nsBase::Error>{::nsBase::Log{id}.message(msg)};
+            return ::tl::unexpected<::nsBase::Error>{::nsBase::Log{id}(msg).move()};
         }
 
 
@@ -335,30 +355,30 @@ inline ::nsBase::Status
 inline void
     NYI(::uuids::uuid id)
         {
-            throw ::nsBase::Error{::nsBase::Log{id}.critical().message("Feature not implemented")};
+           ::nsBase::Log{id}("Feature not implemented").critical().throw_error();
         }
 
 
-inline ::nsBase::Status
+inline ::nsBase::StatusInfo
     Failure(::uuids::uuid id)
         {
             return ::tl::unexpected<::nsBase::Error>{::nsBase::Log{id}};
         }
 
-inline ::nsBase::Status
+inline ::nsBase::StatusInfo
     Failure(::uuids::uuid id, ::std::string const & msg)
         {
-            return ::tl::unexpected<::nsBase::Error>{::nsBase::Log{id}.message(msg)};
+            return ::tl::unexpected<::nsBase::Error>{::nsBase::Log{id}(msg).move()};
         }
 
 inline bool
-    fail(::nsBase::Status const & s)
+    fail(::nsBase::StatusInfo const & s)
         {
             return !bool(s);
         }
 
 inline bool
-    failWin(::nsBase::Status const & s)
+    failWin(::nsBase::StatusInfo const & s)
         {
             return !bool(s);
         }

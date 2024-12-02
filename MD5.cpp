@@ -41,11 +41,11 @@ MD5::MD5()
 
 
 MD5::MD5(
-    ::std::string const & str
+    ::std::string_view const & str
 )
 {
     if (DBC_FAIL(str.empty() || str.size()==32))
-        throw Error(Log(u8"c7ee1650-7b9c-4cb0-9183-65ffbb703412"_uuid));
+        "c7ee1650-7b9c-4cb0-9183-65ffbb703412"_log().throw_error();
 
     clear();
 
@@ -59,19 +59,27 @@ MD5::MD5(
 }
 
 
+MD5::MD5(
+    ::std::string const & str
+)
+:   MD5{::std::string_view{str}}
+{
+}
+
+
 MD5
 hash_from_file(
     ::fs::path const & file_path
 )
 {
-    Status
+    StatusInfo
         retVal;
 
     MD5
         md5;
 
     MD5Coder        coder;
-    ::std::string     buf;
+    ::std::string   buf;
     size_t const    bufLen = 1024 * 1024 * 10;
 
     BLOCK
@@ -80,16 +88,16 @@ hash_from_file(
         ::std::ifstream
             file(
                     file_path
-                ,   ::std::ios::binary
+                ,   ::std::ios::in | ::std::ios::binary
                 );
 
         if (!CHECK2(
                     "0298c09f-ba55-4cce-9a4e-84b533d2b6db"_uuid
                 ,   file.is_open()
-                ,   file_path.u8string()
+                ,   P2S(file_path)
                 )
         )
-            FailBreak(u8"0b04c80e-3425-4c41-9764-a5ce2d0f2739"_uuid);
+            FailBreak("0b04c80e-3425-4c41-9764-a5ce2d0f2739"_uuid);
 
         // alloc buffer
         buf.resize(bufLen);

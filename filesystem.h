@@ -1,13 +1,8 @@
 ﻿#pragma once
 /* Copyright (C) Ralf Kubis */
 
-#ifdef _WIN32
-    #include <filesystem>
-    namespace fs = ::std::filesystem;
-#else
-    #include <experimental/filesystem>
-    namespace fs = ::std::experimental::filesystem;
-#endif
+#include <filesystem>
+namespace fs = ::std::filesystem;
 
 #include <algorithm>
 #include <optional>
@@ -23,7 +18,7 @@ inline auto
         )
         ->  ::fs::path
         {
-            return ::fs::u8path(data);
+            return ::fs::path(reinterpret_cast<char8_t const *>(data)).make_preferred();
         }
 
 inline ::std::string
@@ -31,7 +26,10 @@ inline ::std::string
             ::fs::path const & path
         )
         {
-            return path.generic_u8string();
+            if (auto s8 = path.generic_u8string(); s8.empty())
+                return {};
+            else
+                return {reinterpret_cast<char const *>(s8.data()), s8.size()};
         }
 
 inline ::fs::path
@@ -39,16 +37,14 @@ inline ::fs::path
             ::std::string const & spath
         )
         {
-            return ::fs::u8path(spath).make_preferred();
+            if (spath.empty())
+                return {};
+            else
+                return ::fs::path(reinterpret_cast<char8_t const *>(spath.data()), reinterpret_cast<char8_t const *>(spath.data()) + spath.size()).make_preferred();
         }
 
 
-//KU: keep nested until we drop Qt 5.4 - moc fails on nested namespace definitions
-#ifdef _WIN32
-namespace std{ namespace filesystem
-#else
-namespace std{namespace experimental{ namespace filesystem
-#endif
+namespace std::filesystem
 {
 inline path
     operator+(path const & a, path const & b)
@@ -68,7 +64,7 @@ inline ::std::size_t
 inline ::std::string
     to_string(::fs::path const & p)
         {
-            return p.u8string();
+            return P2S(p);
         }
 
 // get the tail of a path if it has the given prefix, otherwise an empty optional
@@ -137,9 +133,4 @@ void
             ::fs::path const & path
         );
 
-
-#ifdef _WIN32
-}}
-#else
-}}}
-#endif
+}

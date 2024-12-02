@@ -40,7 +40,7 @@ FileStore::container_dir_path(
             create_directory(dir_curr);
 
         if (DBC_FAIL(::fs::exists(dir_curr)))
-            throw Error(Log(u8"c7e0cba7-070d-4591-8c16-71d18c4f353d"_uuid));
+            "c7e0cba7-070d-4591-8c16-71d18c4f353d"_log().throw_error();
 
         for (auto level=0_sz ; level<32 ;)
         {
@@ -122,7 +122,7 @@ FileStore::container_dir_path(
                 remove(dir_tmp,ec);
 
                 if (DBC_FAIL(!ec))
-                    throw Error(Log(u8"a27a0ece-826f-40ca-8966-8244cafbef1c"_uuid));
+                    "a27a0ece-826f-40ca-8966-8244cafbef1c"_log().throw_error();
 
                 path = dir_curr;
                 break;
@@ -135,7 +135,7 @@ FileStore::container_dir_path(
             for (auto & file : files)
             {
                 auto
-                    file_str = file.u8string();
+                    file_str = P2S(file);
 
                 auto
                     dir_next = dir_curr / ::std::string(1,file_str[level]);
@@ -144,7 +144,7 @@ FileStore::container_dir_path(
                     create_directory(dir_next,ec);
 
                 if (DBC_FAIL(::fs::exists(dir_next)))
-                    throw Error(Log(u8"74e0cc77-fa34-4e18-81e8-7644dd4248ac"_uuid));
+                    "74e0cc77-fa34-4e18-81e8-7644dd4248ac"_log().throw_error();
 
                 // move to subdir
                 rename(
@@ -155,11 +155,11 @@ FileStore::container_dir_path(
             remove(dir_tmp,ec);
 
             if (DBC_FAIL(!ec))
-                throw Error(Log(u8"f1bbd87f-7258-4839-bbde-7c5d048780ad"_uuid));
+                "f1bbd87f-7258-4839-bbde-7c5d048780ad"_log().throw_error();
         }
 
         if (DBC_FAIL(path.empty() || ::fs::is_directory(path)))
-            throw Error(Log(u8"970b1a69-1f33-46fe-bf5e-35dde05e89c2"_uuid));
+            "970b1a69-1f33-46fe-bf5e-35dde05e89c2"_log().throw_error();
 
         return path;
     }
@@ -167,11 +167,7 @@ FileStore::container_dir_path(
     {
     }
 
-    return ::tl::unexpected<Error>(
-        ::std::move(Log(u8"2d6900dd-d65c-4cca-aee8-c45afe953904"_uuid)
-            .message("failed to obtain folder for buffer '${data}'"s)
-            .data(to_string(buffer_id))
-        ));
+    return ::tl::unexpected<Error>(::std::move("2d6900dd-d65c-4cca-aee8-c45afe953904"_log("failed to obtain folder for buffer '${data}'"s).data(to_string(buffer_id))));
 }
 
 
@@ -186,7 +182,7 @@ FileStore::file_path(
     if (!exp)
         return exp;
 
-    *exp /= ::fs::u8path(to_string(buffer_id));
+    *exp /= S2P(to_string(buffer_id));
 
     return exp;
 }
@@ -203,7 +199,7 @@ FileStore::store(
         path = file_path(hash);
 
     if (!path)
-        throw Error(::std::move(path.error()));
+        throw path.error();
 
     if (!fs::exists(*path))
     {
@@ -233,13 +229,7 @@ FileStore::read(
             path = *dir_path / to_string(buffer_id);
 
         if (!::fs::exists(path))
-        {
-            return ::tl::unexpected<Error>(
-                ::std::move(Log(u8"92005a4a-8ac7-4e54-8668-f2d5e0082d83"_uuid)
-                    .message("buffer file does not exist '${data}'"s)
-                    .data(path.u8string())
-                    ));
-        }
+            return ::tl::unexpected<Error>("92005a4a-8ac7-4e54-8668-f2d5e0082d83"_log("buffer file does not exist '${data}'"s).data(P2S(path)).move());
 
 TODO(locking)
 
@@ -249,11 +239,7 @@ TODO(locking)
     {
     }
 
-    return ::tl::unexpected<Error>(
-        ::std::move(Log(u8"b686c891-a424-4472-8a46-266bc0987d8c"_uuid)
-            .message("failed read to buffer '${data}'"s)
-            .data(to_string(buffer_id))
-        ));
+    return ::tl::unexpected<Error>("b686c891-a424-4472-8a46-266bc0987d8c"_log("failed read to buffer '${data}'"s).data(to_string(buffer_id)).move());
 }
 
 
@@ -279,11 +265,7 @@ FileStore::exists(
     {
     }
 
-    return ::tl::unexpected<Error>(
-        ::std::move(Log(u8"560e22a6-0fb3-4e7f-ae85-2689685f597d"_uuid)
-            .message("failed test to buffer for existence '${data}'"s)
-            .data(to_string(buffer_id))
-        ));
+    return ::tl::unexpected<Error>("560e22a6-0fb3-4e7f-ae85-2689685f597d"_log("failed test to buffer for existence '${data}'"s).data(to_string(buffer_id)).move());
 }
 
 }

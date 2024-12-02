@@ -13,6 +13,11 @@
 #include <type_traits>
 
 
+namespace nsBase // make it known for dingdong
+{
+}
+
+
 namespace dingdong
 {
 template<typename T>
@@ -26,13 +31,20 @@ template<typename T>
 
             return to_string(t);
         }
+
+template<>
+inline ::std::string
+    dingdong_to_string<::std::string>(
+            ::std::string const & t
+        )
+        {
+            return t;
+        }
 }
 
 
 namespace nsBase
 {
-
-
 /**
     Conversion between various String types.
 
@@ -44,11 +56,10 @@ namespace nsBase
 */
 
 
-
 ////////////////////////////////////////////////////////////
 //  ::std::string -> *
 //
-inline char const *
+[[nodiscard]] inline char const *
     S2C(::std::string const & inValue)
         {
             return inValue.c_str();
@@ -65,8 +76,7 @@ inline char const *
 
     \return The resulting string.
 */
-
-::std::string
+[[nodiscard]] ::std::string
     replaced_allRegexp(
             ::std::string const & inSource
         ,   ::std::regex  const & inRegexp
@@ -84,8 +94,7 @@ inline char const *
 
     \return The resulting string.
 */
-
-::std::string
+[[nodiscard]] ::std::string
     replaced_first(
             ::std::string const & inSource
         ,   ::std::string const & inFrom
@@ -103,8 +112,7 @@ inline char const *
 
     \return The resulting string.
 */
-
-::std::string
+[[nodiscard]] ::std::string
     replaced_all(
             ::std::string const & inSource
         ,   ::std::string const & inFrom
@@ -115,8 +123,7 @@ inline char const *
 /**
 
 */
-
-::std::string
+[[nodiscard]] ::std::string
     unpadded(
             ::std::string const & inSource
         );
@@ -125,19 +132,27 @@ inline char const *
 /**
 
 */
-
-::std::vector<::std::string>
+[[nodiscard]] ::std::vector<::std::string>
     split(
-            ::std::string const & inSource
-        ,   ::std::string const & inDelimiter
+            ::std::string_view const & source
+        ,   ::std::string_view const & delimiter
+        ,   bool                       keep_delimiter = {}
+        );
+
+[[nodiscard]] ::std::pair<::std::string, ::std::string>
+    split_at_first_occurrence_of(
+            ::std::string_view const & source
+        ,   ::std::string_view const & delimiter
+        ,   bool                       keep_delimiter = {}
         );
 
 
+#if 0
 /**
     Concatenate the elements of a collection into a single string using the
     provided delimiter.
-    If the elements of the collection are not of type std::string, a matching
-    function to_string() is looked up that converts the elements to std::string.
+    If the elements of the collection are not of type ::std::string, a matching
+    function to_string() is looked up that converts the elements to ::std::string.
     Be aware that the compiler might select non-explicit constructors to
     the elements to produce instance that match the available to_string() function.
 */
@@ -145,7 +160,7 @@ template<
     typename Collection
 ,   typename ::std::enable_if_t<::std::is_same<typename ::std::remove_cv<typename Collection::value_type>::type,::std::string>::value, int> = 0
 >
-auto
+[[nodiscard]] auto
 joined(
         Collection    const & lines
     ,   ::std::string const & delimiter
@@ -171,13 +186,11 @@ joined(
     }
 
 
-
-
 template<
     typename Collection
 ,   typename ::std::enable_if_t<!::std::is_same<typename ::std::remove_cv<typename Collection::value_type>::type,::std::string>::value, int> = 0
 >
-auto
+[[nodiscard]] auto
 joined(
         Collection    const & lines
     ,   ::std::string const & delimiter
@@ -201,10 +214,73 @@ joined(
 
         return retVal;
     }
+#endif
 
 
-auto
+template<
+    typename T
+,   typename ::std::enable_if_t<!::std::is_same<typename ::std::remove_cv<T>::type,::std::string>::value, int> = 0
+>
+::std::string
+to_joinable_string_helper(
+    T const & v
+)
+{
+    return ::dingdong::dingdong_to_string(v);
+}
+
+
+template<
+    typename T
+,   typename ::std::enable_if_t<::std::is_same<typename ::std::remove_cv<T>::type,::std::string>::value, int> = 0
+>
+::std::string_view
+to_joinable_string_helper(
+    T const & v
+)
+{
+    return v;
+}
+
+
+template<
+    typename Collection
+>
+[[nodiscard]] auto
+joined(
+        Collection    const & lines
+    ,   ::std::string const & delimiter
+    )
+    ->  ::std::string
+    {
+        ::std::string
+            retVal;
+
+        auto
+            count = 0;
+
+        for (auto const & line : lines)
+        {
+            if (count)
+                retVal += delimiter;
+            count++;
+
+            retVal += to_joinable_string_helper(line);
+        }
+
+        return retVal;
+    }
+
+
+[[nodiscard]] auto
 escaped(
+        ::std::string const & inSource
+    )
+    ->  ::std::string;
+
+
+[[nodiscard]] auto
+quoted(
         ::std::string const & inSource
     )
     ->  ::std::string;
@@ -239,7 +315,7 @@ trim_right_in_place(
         i = str.size();
 
     while(  i > 0
-        &&  isspace( (unsigned char)(str[i-1]) )
+        &&  isspace((unsigned char)(str[i-1]))
     )
     {
         --i;
@@ -254,7 +330,7 @@ trim_in_place(
     ::std::string & str
 )
 {
-    return trim_left_in_place( trim_right_in_place(str) );
+    return trim_left_in_place(trim_right_in_place(str));
 }
 
 
@@ -268,7 +344,7 @@ trim_right(
 }
 
 
-inline ::std::string
+[[nodiscard]] inline ::std::string
 trim_left(
     ::std::string str
 )
@@ -277,7 +353,7 @@ trim_left(
 }
 
 
-inline ::std::string
+[[nodiscard]] inline ::std::string
 trim(
     ::std::string str
 )
@@ -286,7 +362,7 @@ trim(
 }
 
 
-inline
+[[nodiscard]] inline
 ::std::string
 to_lower(
     ::std::string const & s
@@ -306,7 +382,7 @@ to_lower(
 }
 
 
-inline
+[[nodiscard]] inline
 ::std::string
 to_upper(
     ::std::string_view const & s
@@ -324,7 +400,6 @@ to_upper(
 
     return l;
 }
-
 
 
 /** Encode a byte-sequence into a string representing
@@ -346,15 +421,31 @@ The input-strings size must be an even number.
 */
 void
     hexStringToData(
-            unsigned char        * inBufferToDecodeTo
-        ,   ::std::string const  & inEncodedBuffer
+            unsigned char             * inBufferToDecodeTo
+        ,   ::std::string_view const  & inEncodedBuffer
         );
 
-
+[[nodiscard]]
 inline ::std::string
-    append_with_separator(::std::string const & pre, ::std::string const & separator, ::std::string const & post)
+    append_with_separator(
+            ::std::string const & pre
+        ,   ::std::string const & separator
+        ,   ::std::string const & post
+        )
         {
             return pre + (pre.empty() ? ::std::string{} : separator) + post;
         }
+
+
+// as with C++20 this gets replaced by string::starts_with()
+template<typename Collection>
+[[nodiscard]] bool
+starts_with(
+        Collection         const & subject
+    ,   ::std::string_view const & prefix
+    )
+    {
+        return ::std::mismatch(prefix.begin(), prefix.end(), subject.begin(), subject.end()).first==prefix.end();
+    }
 
 }

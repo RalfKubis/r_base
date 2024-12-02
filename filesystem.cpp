@@ -9,11 +9,7 @@
 #include <chrono>
 
 
-#ifdef _WIN32
-namespace std{ namespace filesystem
-#else
-namespace std{namespace experimental{ namespace filesystem
-#endif
+namespace std::filesystem
 {
 
 void
@@ -122,7 +118,7 @@ slash_format(
             path.begin()
         ,   path.end()
         ,   ::std::string{}
-        ,   [&](auto & acc, auto & p)
+        ,   [&](::std::string const & acc, ::fs::path const & p)
             {
                 auto s = P2S(p);
                 auto sep = (acc.empty() || *acc.rbegin()=='/') ? "" : "/";
@@ -130,12 +126,7 @@ slash_format(
             }
         );
 
-    return ::fs::u8path(p);
+    return P2S(p);
 }
 
-
-#ifdef _WIN32
-}}
-#else
-}}}
-#endif
+}

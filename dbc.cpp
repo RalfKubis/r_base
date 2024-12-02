@@ -1,14 +1,23 @@
 ﻿/* Copyright (C) Ralf Kubis */
 
+
 #include "r_base/dbc.h"
 #include "r_base/Log.h"
 
 #ifdef WIN32
 #include <windows.h>
+#include <Mmsystem.h>
 #endif
+
+#include <chrono>
+#include <thread>
+#include <atomic>
+
+#include <fmt/format.h>
 
 
 using namespace ::std::string_literals;
+using namespace ::std::chrono_literals;
 
 bool
     dbc_handleEvents = true;
@@ -39,48 +48,6 @@ dbc_callbackSet(
 
 
 #if DBC_ENABLE
-
-namespace
-{
-bool
-AskBreak(
-    char const    * inMessageBoxTitle
-,   const char    * inExpression
-,   const char    * inFile
-,   unsigned int    inLine
-,   char const    * inFunction
-)
-{
-#ifdef WIN32
-
-    char buf[1024];
-
-    sprintf(
-            buf
-        ,   "exp : %s\n"
-            "func: %s\n"
-            "line: %u\n"
-            "file: %s\n"
-        ,   inExpression     ==0 ? "" : inExpression
-        ,   inFunction       ==0 ? "" : inFunction
-        ,   inLine
-        ,   inFile           ==0 ? "" : inFile
-        );
-
-    int nCode = MessageBoxA(
-            0
-        ,   buf
-        ,   inMessageBoxTitle
-        ,   MB_SYSTEMMODAL|MB_ICONHAND|MB_OKCANCEL|MB_SETFOREGROUND
-        );
-
-    return (nCode == IDCANCEL);
-#else
-    return false;
-#endif
-}
-}
-
 
 bool
 dbc_fail(
@@ -134,7 +101,7 @@ dbc_event(
             );
     }
 
-    char const * type = nullptr;
+    char const * type {};
 
     switch (inFailType)
     {
@@ -145,15 +112,15 @@ dbc_event(
     }
 
 
-    nsBase::Log("5e3806a1-4e59-4341-abb9-0fdb994d7239"_uuid)
+    "5e3806a1-4e59-4341-abb9-0fdb994d7239"_log
+        (inEventDescription?inEventDescription:"")
+        ("dbc_type"s,type)
         .critical()
         .event("7d3b9ce3-abbd-41f6-b1bb-827ba0bcbaab"_uuid)
-        .att(u8"dbc_type"s,type)
         .code_file(inFile?inFile:"")
         .code_line(inLine)
         .code_function(inFunction?inFunction:"")
         .code_expression(inExpression?inExpression:"")
-        .message(inEventDescription?inEventDescription:"")
         ;
 
 #if 0 & !defined(WIN64)
@@ -176,99 +143,3 @@ dbc_event(
 }
 
 #endif
-
-
-#if 0
-#pragma comment( linker, "/DEFAULTLIB:Winmm.lib" )
-
-
-static auto
-    beep = false;
-
-
-void
-beepThread()
-{
-    do
-    {
-        Sleep(1);
-
-        if ( beep )
-        {
-            ::std::string
-                fn( "c:/home/rkubis/dev/klick.wav" );
-
-            // stop async playing sound
-            PlaySoundA(
-                    fn.c_str() // pszSound
-                ,   0
-                ,   0
-                );
-
-            PlaySoundA(
-                    fn.c_str()
-                ,   0
-                ,   0
-
-                    // The sound is played asynchronously and PlaySound returns
-                    //  immediately after beginning the sound. To terminate an
-                    //  asynchronously played waveform sound, call PlaySound with
-                    //  pszSound set to NULL.
-                |   SND_ASYNC // 0 // SND_ASYNC // (mTickStyle==1?SND_ASYNC:0)
-                    // The pszSound parameter is a file name. If the file cannot be
-                    //  found, the function plays the default sound unless the
-                    //  SND_NODEFAULT flag is set.
-                |   SND_FILENAME
-                    // If the driver is busy, return immediately without playing the sound.
-                |   SND_NOWAIT // this doesnt work either
-                    // No default sound event is used
-                |   SND_NODEFAULT
-            );
-
-            beep = false;
-        }
-    }
-    while(true);
-}
-
-
-void
-dbgTick()
-{
-    beep = true;
-    ::std::cout << "." << ::std::flush;
-}
-
-
-    new ::std::thread(beepThread);
-
-#endif
-
-////////////////////////////////////////////////////////////////////////////////
-// !!!!! Windows Vista doesnt interrupt previous sounds
-void
-dbgTick(
-   unsigned int const inStyle
-)
-{
-
-    // play new sound
-    PlaySound(
-            "c:\\Windows\\media\\Windows Information Bar.wav"
-        ,   0
-        ,
-                // The sound is played asynchronously and PlaySound returns
-                //  immediately after beginning the sound. To terminate an
-                //  asynchronously played waveform sound, call PlaySound with
-                //  pszSound set to NULL.
-                SND_ASYNC
-                // The pszSound parameter is a file name. If the file cannot be
-                //  found, the function plays the default sound unless the
-                //  SND_NODEFAULT flag is set.
-            |   SND_FILENAME
-                // If the driver is busy, return immediately without playing the sound.
-            |   SND_NOWAIT // this doesnt work either
-                // No default sound event is used
-            |   SND_NODEFAULT
-        );
-}

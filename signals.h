@@ -6,5 +6,5 @@
 namespace nsBase
 {
 void
-    install_signal_handler();
+    install_signal_logger();
 }

@@ -1,7 +1,6 @@
 ﻿#pragma once
 /* Copyright (C) Ralf Kubis */
 
-#include "r_base/language_tools.h"
 #include "r_base/decl.h"
 #include "r_base/dbc.h"
 #include "r_base/filesystem.h"
@@ -51,11 +50,11 @@ namespace nsBase
 
         ...
 
-        Log("EED119DA-075A-4b3d-B152-2A3651FEB351"_uuid)
+        "EED119DA-075A-4b3d-B152-2A3651FEB351"_log()
             .info()
             .scope("foobar()")
-            .message("shader initialisation")
-            .att("filePath", filepath)
+            ("shader initialisation")
+            ("filePath", filepath)
             ;
 
         ...
@@ -76,6 +75,125 @@ class  Log
         ,   CRITICAL    = 4
         };
 
+    /** This Status is equivalent to ::grpc::StatusCode.
+        Using this, components (which are nout coupled to grpc) can
+        communicate the status of their operations in a compatible manner.
+    */
+    public : enum class Status
+        {
+            /// Not an error; returned on success.
+            OK = 0
+
+            /// The operation was cancelled (typically by the caller).
+        ,   CANCELLED = 1
+
+            /// Unknown error. An example of where this error may be returned is if a
+            /// Status value received from another address space belongs to an error-space
+            /// that is not known in this address space. Also errors raised by APIs that
+            /// do not return enough error information may be converted to this error.
+        ,   UNKNOWN = 2
+
+            /// Client specified an invalid argument. Note that this differs from
+            /// FAILED_PRECONDITION. INVALID_ARGUMENT indicates arguments that are
+            /// problematic regardless of the state of the system (e.g., a malformed file
+            /// name).
+        ,   INVALID_ARGUMENT = 3
+
+            /// Deadline expired before operation could complete. For operations that
+            /// change the state of the system, this error may be returned even if the
+            /// operation has completed successfully. For example, a successful response
+            /// from a server could have been delayed long enough for the deadline to
+            /// expire.
+        ,   DEADLINE_EXCEEDED = 4
+
+            /// Some requested entity (e.g., file or directory) was not found.
+        ,   NOT_FOUND = 5
+
+            /// Some entity that we attempted to create (e.g., file or directory) already
+            /// exists.
+        ,   ALREADY_EXISTS = 6
+
+            /// The caller does not have permission to execute the specified operation.
+            /// PERMISSION_DENIED must not be used for rejections caused by exhausting
+            /// some resource (use RESOURCE_EXHAUSTED instead for those errors).
+            /// PERMISSION_DENIED must not be used if the caller can not be identified
+            /// (use UNAUTHENTICATED instead for those errors).
+        ,   PERMISSION_DENIED = 7
+
+            /// The request does not have valid authentication credentials for the
+            /// operation.
+        ,   UNAUTHENTICATED = 16
+
+            /// Some resource has been exhausted, perhaps a per-user quota, or perhaps the
+            /// entire file system is out of space.
+        ,   RESOURCE_EXHAUSTED = 8
+
+            /// Operation was rejected because the system is not in a state required for
+            /// the operation's execution. For example, directory to be deleted may be
+            /// non-empty, an rmdir operation is applied to a non-directory, etc.
+            ///
+            /// A litmus test that may help a service implementor in deciding
+            /// between FAILED_PRECONDITION, ABORTED, and UNAVAILABLE:
+            ///  (a) Use UNAVAILABLE if the client can retry just the failing call.
+            ///  (b) Use ABORTED if the client should retry at a higher-level
+            ///      (e.g., restarting a read-modify-write sequence).
+            ///  (c) Use FAILED_PRECONDITION if the client should not retry until
+            ///      the system state has been explicitly fixed. E.g., if an "rmdir"
+            ///      fails because the directory is non-empty, FAILED_PRECONDITION
+            ///      should be returned since the client should not retry unless
+            ///      they have first fixed up the directory by deleting files from it.
+            ///  (d) Use FAILED_PRECONDITION if the client performs conditional
+            ///      REST Get/Update/Delete on a resource and the resource on the
+            ///      server does not match the condition. E.g., conflicting
+            ///      read-modify-write on the same resource.
+        ,   FAILED_PRECONDITION = 9
+
+            /// The operation was aborted, typically due to a concurrency issue like
+            /// sequencer check failures, transaction aborts, etc.
+            ///
+            /// See litmus test above for deciding between FAILED_PRECONDITION, ABORTED,
+            /// and UNAVAILABLE.
+        ,   ABORTED = 10
+
+            /// Operation was attempted past the valid range. E.g., seeking or reading
+            /// past end of file.
+            ///
+            /// Unlike INVALID_ARGUMENT, this error indicates a problem that may be fixed
+            /// if the system state changes. For example, a 32-bit file system will
+            /// generate INVALID_ARGUMENT if asked to read at an offset that is not in the
+            /// range [0,2^32-1], but it will generate OUT_OF_RANGE if asked to read from
+            /// an offset past the current file size.
+            ///
+            /// There is a fair bit of overlap between FAILED_PRECONDITION and
+            /// OUT_OF_RANGE. We recommend using OUT_OF_RANGE (the more specific error)
+            /// when it applies so that callers who are iterating through a space can
+            /// easily look for an OUT_OF_RANGE error to detect when they are done.
+        ,   OUT_OF_RANGE = 11
+
+            /// Operation is not implemented or not supported/enabled in this service.
+        ,   UNIMPLEMENTED = 12
+
+            /// Internal errors. Means some invariants expected by underlying System has
+            /// been broken. If you see one of these errors, Something is very broken.
+        ,   INTERNAL = 13
+
+            /// The service is currently unavailable. This is a most likely a transient
+            /// condition and may be corrected by retrying with a backoff. Note that it is
+            /// not always safe to retry non-idempotent operations.
+            ///
+            /// \warning Although data MIGHT not have been transmitted when this
+            /// status occurs, there is NOT A GUARANTEE that the server has not seen
+            /// anything. So in general it is unsafe to retry on this status code
+            /// if the call is non-idempotent.
+            ///
+            /// See litmus test above for deciding between FAILED_PRECONDITION, ABORTED,
+            /// and UNAVAILABLE.
+        ,   UNAVAILABLE = 14
+
+            /// Unrecoverable data loss or corruption.
+        ,   DATA_LOSS = 15
+        };
+
 ////////////////////////////////////////////////////////////////////////////////
 /** \name Standard Functions
 @{*/
@@ -85,12 +203,13 @@ class  Log
         This attribute gets set to TRUE by the constructor if a non-empty
         creator_id was provided.
     */
-    R_DTOR(Log);
-    R_CTOR(Log);
-    R_CCPY(Log);
-    R_CMOV(Log);
-    R_COPY(Log);
-    R_MOVE(Log);
+    public : ~Log();
+    public : Log();
+//  public : Log(Log const & src); // defined below
+    public : Log(Log && src);
+    public : Log & operator=(Log const & src) = delete;
+    public : Log & operator=(Log && src);
+
 
     /**
         Construct a new instance. Automatic attributes get added.
@@ -105,19 +224,56 @@ class  Log
         Log(
                 ::uuids::uuid const & id_creator
             );
+
+
+    /** Copy-Constructor is explicit.
+        The clone is disarmed (do_broadcast==false).
+    */
+    public : explicit
+        Log(
+                Log const &
+            );
+
+    /** helper to create a deep copy
+    */
+    private :
+        Log(
+                class Log_Impl const &
+            );
+
 //@}
 
-    /**
-        If TRUE, the instance gets broadcasted to the registered consumers prior
-        to its destruction.
+    public : Log
+        copy() const;
+
+    public : Log &&
+        move();
+
+    /** If TRUE, the instance gets broadcasted to the registered consumers prior
+        to its destruction or on an explict broadcast attempt.
     */
     public : bool
         do_broadcast() const;
-    public : void
+    public : Log &
         do_broadcast_assign(bool val);
+    public : Log &
+        arm()
+            {
+                return do_broadcast_assign(true);
+            }
+    public : Log &
+        disarm()
+            {
+                return do_broadcast_assign(false);
+            }
 
-    /**
-        If applicable, broadcast the instance.
+    /** If armed, broadcast and disarm the instance.
+    */
+    public : void
+        broadcast_if();
+
+
+    /** If applicable, broadcast the instance.
         Clear the instance to its initial state.
         The creator-id gets set to EMPTY.
     */
@@ -125,10 +281,14 @@ class  Log
         broadcast_if_and_clear();
 
 
+    public : [[noreturn]] void
+        throw_error();
+
+
 ////////////////////////////////////////////////////////////////////////////////
 /** \name Properties
 @{*/
-    public : ::uuids::uuid
+    public : ::uuids::uuid const &
         id() const;
     public : Log &
         id(::uuids::uuid const &);
@@ -192,81 +352,141 @@ class  Log
                 Level minimum
             );
 
-    public : ::uuids::uuid
+
+
+    public : Log::Status
+        status() const;
+    public : Log &
+        status(Log::Status);
+    public : bool
+        ok() const
+            {
+                return status()==Status::OK;
+            }
+
+    public : [[noreturn]] void throw_CANCELLED            (){status(Status::CANCELLED          ).throw_error();}
+    public : [[noreturn]] void throw_UNKNOWN              (){status(Status::UNKNOWN            ).throw_error();}
+    public : [[noreturn]] void throw_INVALID_ARGUMENT     (){status(Status::INVALID_ARGUMENT   ).throw_error();}
+    public : [[noreturn]] void throw_DEADLINE_EXCEEDED    (){status(Status::DEADLINE_EXCEEDED  ).throw_error();}
+    public : [[noreturn]] void throw_NOT_FOUND            (){status(Status::NOT_FOUND          ).throw_error();}
+    public : [[noreturn]] void throw_ALREADY_EXISTS       (){status(Status::ALREADY_EXISTS     ).throw_error();}
+    public : [[noreturn]] void throw_PERMISSION_DENIED    (){status(Status::PERMISSION_DENIED  ).throw_error();}
+    public : [[noreturn]] void throw_UNAUTHENTICATED      (){status(Status::UNAUTHENTICATED    ).throw_error();}
+    public : [[noreturn]] void throw_RESOURCE_EXHAUSTED   (){status(Status::RESOURCE_EXHAUSTED ).throw_error();}
+    public : [[noreturn]] void throw_FAILED_PRECONDITION  (){status(Status::FAILED_PRECONDITION).throw_error();}
+    public : [[noreturn]] void throw_ABORTED              (){status(Status::ABORTED            ).throw_error();}
+    public : [[noreturn]] void throw_OUT_OF_RANGE         (){status(Status::OUT_OF_RANGE       ).throw_error();}
+    public : [[noreturn]] void throw_UNIMPLEMENTED        (){status(Status::UNIMPLEMENTED      ).throw_error();}
+    public : [[noreturn]] void throw_INTERNAL             (){status(Status::INTERNAL           ).throw_error();}
+    public : [[noreturn]] void throw_UNAVAILABLE          (){status(Status::UNAVAILABLE        ).throw_error();}
+    public : [[noreturn]] void throw_DATA_LOSS            (){status(Status::DATA_LOSS          ).throw_error();}
+
+
+    public : Log & CANCELLED            (){return status(Status::CANCELLED          );}
+    public : Log & UNKNOWN              (){return status(Status::UNKNOWN            );}
+    public : Log & INVALID_ARGUMENT     (){return status(Status::INVALID_ARGUMENT   );}
+    public : Log & DEADLINE_EXCEEDED    (){return status(Status::DEADLINE_EXCEEDED  );}
+    public : Log & NOT_FOUND            (){return status(Status::NOT_FOUND          );}
+    public : Log & ALREADY_EXISTS       (){return status(Status::ALREADY_EXISTS     );}
+    public : Log & PERMISSION_DENIED    (){return status(Status::PERMISSION_DENIED  );}
+    public : Log & UNAUTHENTICATED      (){return status(Status::UNAUTHENTICATED    );}
+    public : Log & RESOURCE_EXHAUSTED   (){return status(Status::RESOURCE_EXHAUSTED );}
+    public : Log & FAILED_PRECONDITION  (){return status(Status::FAILED_PRECONDITION);}
+    public : Log & ABORTED              (){return status(Status::ABORTED            );}
+    public : Log & OUT_OF_RANGE         (){return status(Status::OUT_OF_RANGE       );}
+    public : Log & UNIMPLEMENTED        (){return status(Status::UNIMPLEMENTED      );}
+    public : Log & INTERNAL             (){return status(Status::INTERNAL           );}
+    public : Log & UNAVAILABLE          (){return status(Status::UNAVAILABLE        );}
+    public : Log & DATA_LOSS            (){return status(Status::DATA_LOSS          );}
+
+    public : ::uuids::uuid const &
         application() const;
     public : Log &
         application(::uuids::uuid const &);
 
 
-    public : ::std::string
+    public : ::uuids::uuid const &
+        application_instance() const;
+    public : Log &
+        application_instance(::uuids::uuid const &);
+
+
+    public : ::std::string const &
         version() const;
     public : Log &
-        version_(::std::string const &);
-
-    public : template<typename V>
-        Log &
-            version(
-                    V const & v
-                )
-                {
-                    return version_(to_string(v));
-                }
+        version(::std::string_view const &);
 
 
-    public : ::uuids::uuid
+    public : ::uuids::uuid const &
         session() const;
     public : Log &
         session(::uuids::uuid const &);
 
 
-    public : ::uuids::uuid
+    public : ::uuids::uuid const &
         creator() const;
     public : Log &
         creator(::uuids::uuid const &);
 
 
-    public : ::uuids::uuid
+    public : ::uuids::uuid const &
         event() const;
     public : Log &
         event(::uuids::uuid const &);
 
-    public : ::nsBase::time::time_point_t
+
+    public : ::nsBase::time::time_point_t const &
         time() const;
-    public : ::std::string
-        time_as_string() const;
-    public : Log &
-        time_from_string(::std::string const &);
     public : Log &
         time(::nsBase::time::time_point_t const &);
 
 
-    public : ::std::string
+    public : ::std::string const &
         host() const;
     public : Log &
-        host(::std::string const &);
+        host(::std::string_view const &);
 
 
-    public : ::std::string
+    public : ::std::string const &
         user() const;
     public : Log &
-        user(::std::string const &);
+        user(::std::string_view const &);
 
 
-    public : ::std::string
+    public : ::std::string const &
         thread() const;
     public : Log &
-        thread(::std::string const &);
+        thread(::std::string_view const &);
+
+
+    public : ::std::string const &
+        scope() const;
+    public : Log &
+        scope(::std::string_view const &);
+
+    public : Log &
+        operator[](
+                ::std::string_view const & s
+            )
+            {
+                return scope(s);
+            }
+
+    public : ::std::string const &
+        message() const;
+    public : Log &
+        message(::std::string_view const &);
 
 
     public : Log &
         property(
-                ::std::string const & key
-            ,   ::std::string const & value
+                ::std::string_view const & key
+            ,   ::std::string_view const & value
             );
 
     public : ::std::optional<::std::string>
         property(
-                ::std::string const & key
+                ::std::string_view const & key
             ) const;
 
     /** A sequence of Creator-IDs that allows it to reconstruct the path a log
@@ -282,7 +502,7 @@ class  Log
         trace() const;
     // de-serialize
     public : Log &
-        trace(::std::string const &);
+        trace(::std::string_view const &);
     /// append a hop to the trace
     public : Log &
         trace(::uuids::uuid const &);
@@ -329,13 +549,13 @@ class  Log
         \return
         Reference to THIS. This allows chaining.
     */
-    public : Log &
+    private : Log &
         att_s(
                 ::std::string_view const & key
             ,   ::std::string_view const & value
             );
 
-    public : template<typename val_t> Log &
+    private : template<typename val_t> Log &
         att(
                 ::std::string_view  const & key
             ,   val_t               const & value
@@ -343,6 +563,66 @@ class  Log
             {
                 return att_s(key, ::std::to_string(value));
             }
+
+    public : template<typename val_t> Log &
+        operator()(
+                ::std::string_view     const & key
+            ,   ::std::optional<val_t> const & value
+            );
+
+    public : template<typename val_t> Log &
+        operator()(
+                ::std::string_view     const & key
+            ,   val_t                  const * value
+            );
+
+    public : template<typename val_t> Log &
+        operator()(
+                ::std::string_view              const & key
+            ,   ::std::reference_wrapper<val_t> const & value
+            );
+
+    public : Log &
+        operator()(
+                ::std::string_view const & key
+            ,   ::uuids::uuid      const & value
+            )
+            {
+                return operator()(key, to_string(value));
+            }
+
+    public : Log &
+        operator()(
+                ::std::string_view           const & key
+            ,   ::nsBase::time::time_point_t const & value
+            )
+            {
+                return operator()(key, to_string_iso_utc(value));
+            }
+
+    public : Log &
+        operator()(
+                ::std::string_view              const & key
+            ,   ::nsBase::time::time_duration_t const & value
+            )
+            {
+                return operator()(key, to_string_HH_mm_ss(value, true));
+            }
+
+    public : Log &
+        operator()(
+                ::std::string_view           const & key
+            ,   ::nsBase::time::date_t       const & value
+            )
+            {
+                return operator()(key, to_string(value));
+            }
+
+    public : template<typename val_t> Log &
+        operator()(
+                ::std::string_view const & key
+            ,   val_t              const & value
+            );
 
 
     public : ::std::map<::std::string,::std::string> const &
@@ -366,7 +646,7 @@ class  Log
     */
     public : ::std::string
         resolved(
-                ::std::string const & s
+                ::std::string_view const & s
             ) const;
 
     /**
@@ -380,9 +660,9 @@ class  Log
     */
     public : ::std::string
         resolved(
-                ::std::string const & s
-            ,   ::std::string const & key
-            ,   ::std::string const & value
+                ::std::string_view const & s
+            ,   ::std::string_view const & key
+            ,   ::std::string_view const & value
             ) const;
 //@}
 
@@ -392,18 +672,6 @@ class  Log
 ////////////////////////////////////////////////////////////////////////////////
 /** \name Helper for common dynamic attributes
 @{*/
-
-    /**
-        Update the pre-defined attribute 'scope'.
-    */
-    public : Log &
-        scope(
-                ::std::string_view const & inValue
-            )
-            {
-                att_s("scope", inValue);
-                return *this;
-            }
 
     /**
         Update the pre-defined attribute 'action'.
@@ -517,7 +785,7 @@ class  Log
     */
     public : Log &
         data1(
-                ::std::string const & inValue
+                ::std::string_view const & inValue
             )
             {
                 att_s("data1", inValue);
@@ -544,7 +812,7 @@ class  Log
                 ::fs::path const & inValue
             )
             {
-                att_s("path", inValue.u8string());
+                att_s("path", P2S(inValue));
                 return *this;
             }
     public : Log &
@@ -552,32 +820,24 @@ class  Log
                 ::fs::path const & inValue
             )
             {
-                att_s("path1", inValue.u8string());
+                att_s("path1", P2S(inValue));
                 return *this;
             }
 
 
     public : ::std::string
-        message() const
-            {
-                return attribute("message").value_or(::std::string());
-            }
-
-    public : ::std::string
         message_resolved() const
             {
-                return resolved(attribute("message").value_or(::std::string()));
+                return resolved(message());
             }
 
-    /**
-        Update the pre-defined attribute 'message'.
-    */
+
     public : Log &
-        message(
+        operator()(
                 ::std::string_view const & inValue
             )
             {
-                att_s("message", inValue);
+                message(inValue);
                 return *this;
             }
 
@@ -629,42 +889,18 @@ class  Log
 /** \name Serialisation
 @{*/
 
-    public : enum class
-        Format
-            {
-                TEXT
-            ,   JSON
-            ,   XML
-            };
-
-    /**
-        Serialize the Log.
-
-        \param  format    The format to convert to.
-        \param  indent    (Optional) If -1, no newline characters or
-            indending whitespaces are inserted. If >=0, the output gets
-            formatted with the given base indent.
-
-        \return
-        The resulting text.
+    /** Serialize the Log into a single-lined JSON object.
     */
     public : ::std::string
         serialize(
-                Format  format
-            ,   int     indent = -1
+                bool pretty = {}
             ) const;
 
-    /**
-        Remove all attributes and add the attributes that are stored in the
-        given text.
-
-        \param  inStream    The text to parse.
-        \param  inFormat    The format of the text.
+    /** Read a log from a JSON-object.
     */
     public : static ::std::optional<Log>
         deserialize(
-                ::std::string  const & data
-            ,   Format                 format
+                ::std::string_view const & data
             );
 //@}
 
@@ -710,22 +946,13 @@ class  Log
 
 
 ////////////////////////////////////////////////////////////////////////////////
-//  template specialisations
+//  template definitions/specialisations
 //
 template<> inline
     Log &
-        Log::version<::std::string>(
-                ::std::string const & v
-            )
-            {
-                return version_(v);
-            }
-
-template<> inline
-    Log &
-        Log::att<::std::string>(
+        Log::att<::std::string_view>(
                 ::std::string_view const & key
-            ,   ::std::string      const & value
+            ,   ::std::string_view const & value
             )
             {
                 return att_s(key, value);
@@ -751,50 +978,120 @@ template<> inline
                 return att_s(key, value);
             }
 
+template<> inline
+    Log &
+        Log::att<::std::string>(
+                ::std::string_view  const & key
+            ,   ::std::string       const & value
+            )
+            {
+                return att_s(key, value);
+            }
+
+
+
+template<typename val_t>
+    Log &
+        Log::operator()(
+                ::std::string_view     const & key
+            ,   ::std::optional<val_t> const & value
+            )
+            {
+                if (value)
+                    return operator()(key, *value);
+                else
+                    return operator()(key, "<nullopt>");
+            }
+
+template<typename val_t>
+    Log &
+        Log::operator()(
+                ::std::string_view     const & key
+            ,   val_t                  const * value
+            )
+            {
+                if (value)
+                    return operator()(key, *value);
+                else
+                    return operator()(key, "<null>");
+            }
+
+template<> inline
+    Log &
+        Log::operator()<char>(
+                ::std::string_view     const & key
+            ,   char                   const * value
+            )
+            {
+                if (value)
+                    return att_s(key, value);
+                else
+                    return operator()(key, "<null>");
+            }
+
+template<typename val_t>
+    Log &
+        Log::operator()(
+                ::std::string_view              const & key
+            ,   ::std::reference_wrapper<val_t> const & value
+            )
+            {
+                return operator()(key, value.get());
+            }
+
+template<typename val_t>
+    Log &
+        Log::operator()(
+                ::std::string_view const & key
+            ,   val_t              const & value
+            )
+            {
+                return att(key, value);
+            }
+
+
 ////////////////////////////////////////////////////////////////////////////////
-//  inline methods that require template specialisations
+//  inline methods that require template definitions/specialisations
 //
 
-    inline Log &
-        Log::count(
-                ::std::int64_t const & value
-            )
-            {
-                att("count", value);
-                return *this;
-            }
+inline Log &
+    Log::count(
+            ::std::int64_t const & value
+        )
+        {
+            att("count", value);
+            return *this;
+        }
 
-    inline Log &
-        Log::count1(
-                ::std::int64_t const & value
-            )
-            {
-                att("count1", value);
-                return *this;
-            }
+inline Log &
+    Log::count1(
+            ::std::int64_t const & value
+        )
+        {
+            att("count1", value);
+            return *this;
+        }
 
-    inline Log &
-        Log::data(
-                ::std::int64_t value
-            )
-            {
-                att("data", value);
-                return *this;
-            }
+inline Log &
+    Log::data(
+            ::std::int64_t value
+        )
+        {
+            att("data", value);
+            return *this;
+        }
 
-    inline Log &
-        Log::code_line(
-                int line
-            )
-            {
-                att("code_line", line);
-                return *this;
-            }
+inline Log &
+    Log::code_line(
+            int line
+        )
+        {
+            att("code_line", line);
+            return *this;
+        }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-
-#if !(defined(__GNUG__) && defined WIN32)
 
 /**
     Read Logs from a target file.
@@ -803,23 +1100,39 @@ template<> inline
 
     \return The logs read from the target file.
 */
-extern ::std::vector<Log>
+::std::vector<Log>
     log_read(
             ::fs::path const & path
         );
 
-#endif
+void
+    logs_read(
+            ::std::vector<Log> & target
+        ,   ::fs::path   const & path
+        );
 
 
 ::std::string
     to_string(
-            Log::Level level
+            Log::Level
         );
 
 ::std::optional<Log::Level>
     level_from_string(
-            ::std::string_view str
+            ::std::string_view
         );
+
+
+::std::string
+    to_string(
+            Log::Status
+        );
+
+::std::optional<Log::Status>
+    status_from_string(
+            ::std::string_view
+        );
+
 
 /** Flood prevention filter.
     This function routes Logs to a log consumer function.
@@ -849,3 +1162,121 @@ void
         ,   Log                                 & log
         );
 }
+
+
+namespace nsBase
+{
+
+struct Log_maker
+{
+    ::uuids::uuid u;
+
+    ::nsBase::Log
+        operator()()
+            {
+                return {u};
+            }
+
+
+    public : ::nsBase::Log
+        operator()(
+                ::std::string_view const & message
+            )
+            {
+                auto
+                    l = ::nsBase::Log{u};
+                    l(message);
+
+                return l;
+            }
+
+    public : ::nsBase::Log
+        operator[](
+                ::std::string_view const & scope
+            )
+            {
+                auto
+                    l = ::nsBase::Log{u};
+                    l[scope];
+
+                return l;
+            }
+};
+
+
+/** Helper to log an application instance execution start and end.
+    The function immediately emits the start-log and returns the exit-log for its scoped destruction.
+*/
+Log
+    log_application_execution_span(
+            Log && pattern
+        );
+
+}
+
+consteval auto
+    operator "" _log(
+            char        const * data
+        ,   ::std::size_t       len
+        )
+        ->  ::nsBase::Log_maker
+        {
+            auto is_digit = [](char const c){return (c>='0' && c<='9') || (c>='a' && c<='f');};
+            auto is_minus = [](char const c){return  c=='-';};
+
+            // if this fails, the UUID string is wrong sized
+            len /= static_cast<::std::size_t>(len==36);
+            len /= static_cast<::std::size_t>(
+                    is_digit(data[ 0])
+                &&  is_digit(data[ 1])
+                &&  is_digit(data[ 2])
+                &&  is_digit(data[ 3])
+                &&  is_digit(data[ 4])
+                &&  is_digit(data[ 5])
+                &&  is_digit(data[ 6])
+                &&  is_digit(data[ 7])
+
+                &&  is_minus(data[ 8])
+
+                &&  is_digit(data[ 9])
+                &&  is_digit(data[10])
+                &&  is_digit(data[11])
+                &&  is_digit(data[12])
+
+                &&  is_minus(data[13])
+
+                &&  is_digit(data[14])
+                &&  is_digit(data[15])
+                &&  is_digit(data[16])
+                &&  is_digit(data[17])
+
+                &&  is_minus(data[18])
+
+                &&  is_digit(data[19])
+                &&  is_digit(data[20])
+                &&  is_digit(data[21])
+                &&  is_digit(data[22])
+
+                &&  is_minus(data[23])
+
+                &&  is_digit(data[24])
+                &&  is_digit(data[25])
+                &&  is_digit(data[26])
+                &&  is_digit(data[27])
+                &&  is_digit(data[28])
+                &&  is_digit(data[29])
+                &&  is_digit(data[30])
+                &&  is_digit(data[31])
+                &&  is_digit(data[32])
+                &&  is_digit(data[33])
+                &&  is_digit(data[34])
+                &&  is_digit(data[35])
+                );
+
+            auto u = ::uuids::uuid::from_string(::std::string_view{data, len});
+
+            // if this fails, the UUID string is otherwise ill-formed
+            len /= static_cast<::std::size_t>(u.has_value());
+
+            return {u.value()};
+        }

@@ -85,7 +85,7 @@ extern  void
                     ,   __FILE__                                                \
                     ,   __LINE__                                                \
                     ,   __FUNCTION__                                            \
-                    ,   nullptr                                                 \
+                    ,   {}                                                      \
                     );                                                          \
             }                                                                   \
         }
@@ -100,7 +100,7 @@ extern  void
                     ,   __FILE__                                                \
                     ,   __LINE__                                                \
                     ,   __FUNCTION__                                            \
-                    ,   nullptr                                                 \
+                    ,   {}                                                      \
                     );                                                          \
             }                                                                   \
         }
@@ -115,7 +115,7 @@ extern  void
                     ,   __FILE__                                                \
                     ,   __LINE__                                                \
                     ,   __FUNCTION__                                            \
-                    ,   nullptr                                                 \
+                    ,   {}                                                      \
                     );                                                          \
             }                                                                   \
         }
@@ -129,7 +129,7 @@ extern  void
             ,   __FILE__                                                        \
             ,   __LINE__                                                        \
             ,   __FUNCTION__                                                    \
-            ,   nullptr                                                         \
+            ,   {}                                                              \
             )
 
     #define DBC_GOOD( EXP )  !DBC_FAIL( EXP )
@@ -153,10 +153,3 @@ extern  void
 #define DBC_GOOD( EXP )  (EXP)
 
 #endif
-
-// plays a short tick sound for acoustic error tracing
-// will always tick in WS-mode
-void
-    dbgTick(
-            unsigned int const style = 1
-        );

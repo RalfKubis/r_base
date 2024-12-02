@@ -1,15 +1,22 @@
 ﻿#pragma once
 
-#include "r_base/Property.h"
-#include "r_base/dbc.h"
-#include "r_base/uuid.h"
-
+#include <cstddef>
 
 ////////////////////////////////////////
 /**
     Constructor/Destructor definition
     Rule of 0/3/5
 */
+
+#if 0 // for quick copy paste
+    R_DTOR() = default;
+    R_CTOR() = default;
+    R_CCPY() = default;
+    R_CMOV() = default;
+    R_COPY() = default;
+    R_MOVE() = default;
+#endif
+
 #define R_CTOR_CE(t)   public : constexpr t()
 #define R_CCPY_CE(t)   public : constexpr t(t const & src)
 #define R_CMOV_CE(t)   public : constexpr t(t && src)
@@ -87,8 +94,21 @@
 #define NORELEASE(MSG)
 #endif
 
-inline ::std::size_t
+constexpr ::std::size_t
     operator "" _sz (unsigned long long int x)
         {
             return x;
         }
+
+template<typename T>
+void
+    R_DELETE(T* & t)
+        {
+            delete t;
+            t = nullptr;
+        }
+
+
+#include "r_base/dbc.h"
+#include "r_base/uuid.h"
+#include "r_base/Property.h"

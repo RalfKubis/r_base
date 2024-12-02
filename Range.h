@@ -2,9 +2,10 @@
 /* Copyright (C) Ralf Kubis */
 
 #include "r_base/decl.h"
-#include "r_base/Property.h"
+#include "r_base/language_tools.h"
 
 #include <optional>
+#include <algorithm>
 
 
 namespace nsBase
@@ -13,8 +14,12 @@ namespace nsBase
 template<class T>
 class Range
 {
-    public :
-        Range() = default;
+    R_DTOR(Range) = default;
+    R_CTOR(Range) = default;
+    R_CCPY(Range) = default;
+    R_CMOV(Range) = default;
+    R_COPY(Range) = default;
+    R_MOVE(Range) = default;
 
     public :
         Range(
@@ -22,6 +27,30 @@ class Range
             ,   ::std::optional<T> max
             );
 
+    public : template<typename FROM>
+        Range(
+                Range<FROM> const & rhs
+            )
+            {
+                if (rhs.min()) min_assign(*rhs.min());
+                if (rhs.max()) max_assign(*rhs.max());
+            }
+
+    public : template<typename FROM>
+        Range &
+            operator=(
+                    Range<FROM> const & rhs
+                )
+                {
+                    if ((void*)(&rhs) != (void*)this)
+                    {
+                        clear();
+                        if (rhs.min()) min_assign(*rhs.min());
+                        if (rhs.max()) max_assign(*rhs.max());
+                    }
+
+                    return *this;
+                }
 
     public : bool
         operator==(
@@ -37,6 +66,8 @@ class Range
             max
         ,   ::std::optional<T>
         )
+
+    public : auto operator<=>(Range const &) const = default;
 
     public : bool
         contains(
@@ -56,6 +87,12 @@ class Range
         is_intersecting(
                 Range const & rhs
             ) const;
+
+    public : void
+        make_finite_if_and_capture(T const &);
+
+    public : void
+        clear();
 };
 
 
@@ -143,12 +180,31 @@ Range<T>::is_intersecting(
         return true;
 
     return
-            *m_min     && rhs.contains(**m_min)
-        ||  *m_max     && rhs.contains(**m_max)
-        ||  *rhs.m_min && contains(**m_min)
-        ||  *rhs.m_max && contains(**m_max)
+                *m_min && rhs.contains(**m_min)
+        ||      *m_max && rhs.contains(**m_max)
+        ||  *rhs.m_min &&     contains(**rhs.m_min)
+        ||  *rhs.m_max &&     contains(**rhs.m_max)
         ;
 }
 
+
+template<class T>
+inline void
+Range<T>::make_finite_if_and_capture(
+    T const & x
+)
+{
+    *m_min = ::std::min(m_min->value_or(x), x);
+    *m_max = ::std::max(m_max->value_or(x), x);
+}
+
+
+template<class T>
+inline void
+Range<T>::clear()
+{
+    max_clear();
+    min_clear();
+}
 
 }

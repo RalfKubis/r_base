@@ -5,26 +5,24 @@
 #include "r_base/language_tools.h"
 
 #include <algorithm>
+#include <sstream>
 
-using namespace std;
 
 namespace nsBase
 {
 
-////////////////////////////////////////////////////////////////////////////////
-
-string
+::std::string
 replaced_allRegexp(
-    string const & inSource
-,   regex  const & inRegexp
-,   string const & inSubstitute
+    ::std::string const & inSource
+,   ::std::regex  const & inRegexp
+,   ::std::string const & inSubstitute
 )
 {
-    ostringstream
+    ::std::ostringstream
         ss;
 
     ::std::regex_replace(
-            ostreambuf_iterator<char>(ss)  // OutputIt out
+            ::std::ostreambuf_iterator<char>(ss)  // OutputIt out
         ,   inSource.begin()               // BidirIt first
         ,   inSource.end()                 // BidirIt last
         ,   inRegexp                       // re
@@ -36,46 +34,44 @@ replaced_allRegexp(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-string
+::std::string
 replaced_first(
-    string const & inSource
-,   string const & inFrom
-,   string const & inTo
+    ::std::string const & inSource
+,   ::std::string const & inFrom
+,   ::std::string const & inTo
 )
 {
-    string
+    ::std::string
         result;
 
     auto
         pos_next = inSource.find(inFrom,0);
 
-    if ( pos_next==string::npos )
+    if (pos_next==::std::string::npos)
         return inSource;
 
     auto
         itBegin = inSource.begin();
 
-    result.append( itBegin, itBegin+pos_next );
-    result.append( inTo );
-    result.append( itBegin+pos_next+inFrom.length(), inSource.end() );
+    result.append(itBegin, itBegin+pos_next);
+    result.append(inTo);
+    result.append(itBegin+pos_next+inFrom.length(), inSource.end());
 
     return result;
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-string
+::std::string
 replaced_all(
-    string const & inSource
-,   string const & inFrom
-,   string const & inTo
+    ::std::string const & inSource
+,   ::std::string const & inFrom
+,   ::std::string const & inTo
 )
 {
-    string::size_type
+    ::std::string::size_type
         from = 0;
 
-    string
+    ::std::string
         result;
 
     for (;;)
@@ -83,13 +79,13 @@ replaced_all(
         auto
             to = inSource.find(inFrom, from);
 
-        if ( to==string::npos )
+        if (to==::std::string::npos)
         {
-            result.append( inSource.begin() + from, inSource.end() );
+            result.append(inSource.begin() + from, inSource.end());
             break;
         }
 
-        result.append( inSource.begin() + from, inSource.begin() + to );
+        result.append(inSource.begin() + from, inSource.begin() + to);
 
         result += inTo;
 
@@ -100,10 +96,9 @@ replaced_all(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-string
+::std::string
 unpadded(
-    string const & inSource
+    ::std::string const & inSource
 )
 {
     auto
@@ -135,7 +130,7 @@ unpadded(
         }
     }
 
-    string
+    ::std::string
         retVal;
 
     copy(
@@ -148,48 +143,46 @@ unpadded(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-vector<string>
+
+::std::vector<::std::string>
 split(
-    ::std::string const & inSource
-,   ::std::string const & inDelimiter
+    ::std::string_view const & source
+,   ::std::string_view const & delimiter
+,   bool                       keep_delimiter
 )
 {
-    vector<string>
+    ::std::vector<::std::string>
         retVal;
 
     BLOCK
     {
-        if ( DBC_FAIL(!inDelimiter.empty()) )
+        if (DBC_FAIL(!delimiter.empty()))
             LEAVE;
 
-        string::size_type
-            from = 0;
-        string::size_type
-            to = inSource.size();
+        if (source.empty())
+            LEAVE;
 
-        for(;;)
+        ::std::string::size_type from = 0;
+        ::std::string::size_type to   = source.size();
+
+        for (;;)
         {
-            if ( from>=to )
-                break;
+            auto next = source.find(delimiter, from);
 
-            auto next = inSource.find(
-                    inDelimiter
-                ,   from
-                );
-
-
-            if ( next==string::npos )
+            if (next==::std::string_view::npos)
             {
-                retVal.push_back( inSource.substr(from) );
+                retVal.push_back(::std::string{source.substr(from)}); // the rest
                 break;
             }
 
             auto count = next-from;
 
-            retVal.push_back( inSource.substr(from,count) );
+            if (keep_delimiter)
+                count += delimiter.size();
 
-            from = next + inDelimiter.size();
+            retVal.push_back(::std::string{source.substr(from,count)});
+
+            from = next + delimiter.size();
         }
     }
     FIN
@@ -197,21 +190,78 @@ split(
     return retVal;
 }
 
-////////////////////////////////////////////////////////////////////////////////
+
+::std::pair<::std::string, ::std::string>
+split_at_first_occurrence_of(
+    ::std::string_view const & source
+,   ::std::string_view const & delimiter
+,   bool                       keep_delimiter
+)
+{
+    ::std::pair<::std::string, ::std::string>
+        ss;
+
+    BLOCK
+    {
+        if (DBC_FAIL(!delimiter.empty()))
+        {
+            ss.first = source;
+            LEAVE;
+        }
+
+        if (source.empty())
+            LEAVE;
+
+        auto index = source.find(delimiter);
+
+        if (index==::std::string_view::npos)
+        {
+            ss.first = source;
+            LEAVE;
+        }
+
+        auto count = index;
+
+        if (keep_delimiter)
+            count += delimiter.size();
+
+        ss.first  = source.substr(0,count);
+        ss.second = source.substr(index + delimiter.size());
+    }
+    FIN
+
+    return ss;
+}
+
+
 auto
 escaped(
-    string const & inSource
+    ::std::string const & source
 )
--> string
+-> ::std::string
 {
     return  "\""
         +   replaced_all(
-                    replaced_all(inSource,"\\","\\\\")
+                    replaced_all(source,"\\","\\\\")
                 ,   "\""
                 ,   "\\\""
                 )
         +   "\""
         ;
+}
+
+
+auto
+quoted(
+    ::std::string const & inSource
+)
+-> ::std::string
+{
+    ::std::stringstream
+        ss;
+        ss << ::std::quoted(inSource);
+
+    return ss.str();
 }
 
 
@@ -248,12 +298,12 @@ dataToHexString(
 
 void
 hexStringToData(
-    unsigned char      * inBufferToDecodeTo
-,   ::std::string const  & inEncodedBuffer
+    unsigned char             * inBufferToDecodeTo
+,   ::std::string_view const  & inEncodedBuffer
 )
 {
-    DBC_PRE( inBufferToDecodeTo!=nullptr )
-    DBC_PRE( inEncodedBuffer.size()%2==0 )
+    DBC_PRE(inBufferToDecodeTo)
+    DBC_PRE(inEncodedBuffer.size()%2==0)
 
     if ( inEncodedBuffer.empty() )
         return;

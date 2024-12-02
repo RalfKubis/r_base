@@ -62,6 +62,7 @@ class MD5Coder
 
 
 MD5Coder & operator<<(MD5Coder &, ::std::string const &);
+MD5Coder & operator<<(MD5Coder &, ::std::basic_string<::std::uint8_t> const &);
 MD5Coder & operator<<(MD5Coder &, ::nsBase::MD5 const &);
 MD5Coder & operator<<(MD5Coder &, ::uuids::uuid const &);
 MD5Coder & operator<<(MD5Coder &, ::std::chrono::system_clock::time_point const &);

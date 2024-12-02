@@ -56,6 +56,9 @@ class SessionFileLogger
         rename_if();
 
     public : void
+        dispose();
+
+    public : void
         operator()(::nsBase::Log &);
 };
 

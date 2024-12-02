@@ -11,10 +11,8 @@
 #include <array>
 #include <compare>
 
-#include <time.h>
 
-
-namespace nsBase::time
+namespace nsBase{namespace time
 {
 
 using time_point_t              = ::std::chrono::system_clock::time_point;
@@ -26,50 +24,22 @@ using time_duration_optional_t  = ::std::optional<time_duration_t>;
 using day_time_t                = ::std::chrono::hh_mm_ss<time_duration_t>;
 using day_time_optional_t       = ::std::optional<day_time_t>;
 
+<<<<<<< HEAD
 using date_t                    = ::std::chrono::year_month_day;
+=======
+using date_t                    = ::std::chrono::sys_days;
+>>>>>>> origin/master
 using date_optional_t           = ::std::optional<date_t>;
 
 
 time_point_t
     now();
 
-
 bool
-is_null(
-        time_point_t const & tp
-    );
+    is_null(
+            time_point_t const & tp
+        );
 
-
-inline ::std::tm *
-safe_localtime(
-    ::std::tm     * to
-,   ::std::time_t * from
-)
-{
-    #ifdef WIN32
-        if (::localtime_s(to, from))
-            return {};
-        return to;
-    #else
-        return localtime_r(from, to);
-    #endif
-}
-
-
-inline ::std::tm *
-safe_gmtime(
-    ::std::tm     * to
-,   ::std::time_t * from
-)
-{
-    #ifdef WIN32
-        if (::gmtime_s(to, from))
-            return {};
-        return to;
-    #else
-        return gmtime_r(from, to);
-    #endif
-}
 
 
 time_point_optional_t
@@ -84,7 +54,7 @@ time_point_optional_t
 //       e.g. 1985-04-12T23:20:50.52Z or 1990-12-31T15:59:60-08:00
 time_point_optional_t
     time_from_string_rfc3339(
-            ::std::string_view const & s
+            ::std::string       const & s
         );
 
 // convert from UTC time string YYYY*MM*DD*HH*mm*ss*mmm (where * is any sequence of non-digits)
@@ -98,7 +68,7 @@ inline time_point_optional_t
 
 inline time_point_optional_t
     time_from_string_local_YYYY_MM_DD_HH_mm_ss_mmm(
-            ::std::string_view const & s
+            ::std::string const & s
         )
         {
             return time_from_string(s, false, {0,1,2,3,4,5,6});
@@ -106,7 +76,7 @@ inline time_point_optional_t
 
 inline time_point_optional_t
     time_from_string_utc_DD_MM_YYYY_HH_mm_ss_mmm(
-            ::std::string_view const & s
+            ::std::string const & s
         )
         {
             return time_from_string(s, true, {2,1,0,3,4,5,6});
@@ -114,7 +84,7 @@ inline time_point_optional_t
 
 inline time_point_optional_t
     time_from_string_local_DD_MM_YYYY_HH_mm_ss_mmm(
-            ::std::string_view const & s
+            ::std::string const & s
         )
         {
             return time_from_string(s, false, {2,1,0,3,4,5,6});
@@ -122,7 +92,7 @@ inline time_point_optional_t
 
 inline time_point_optional_t
     time_from_string_local_DD_MM_YY_HH_mm_ss_mmm(
-            ::std::string_view const & s
+            ::std::string const & s
         )
         {
             return time_from_string(s, false, {2,1,0,3,4,5,6}, true);
@@ -183,10 +153,10 @@ inline int
         {
             return t.tm_year + 1900;
         }
-}
+}}
 
 
-namespace std::chrono
+namespace std{namespace chrono
 {
 ////////////////////////////////////////////////////////////////////////////////
 //  Time Point
@@ -275,46 +245,13 @@ inline ::std::tm
         {
             return to_calendar(tp, false);
         }
-
-
-inline ::nsBase::time::date_t
-    to_date(
-            ::nsBase::time::time_point_t const & tp
-        ,   bool                                 utc
-        )
-        {
-            auto tm = to_calendar(tp, utc);
-
-            return ::nsBase::time::date_t
-                {   ::std::chrono:: year{tm.tm_year + 1900}
-                ,   ::std::chrono::month{static_cast<unsigned int>(tm.tm_mon + 1)}
-                ,   ::std::chrono::  day{static_cast<unsigned int>(tm.tm_mday)}
-                };
-        }
-
-inline ::nsBase::time::date_t
-    to_utc_date(
-            ::nsBase::time::time_point_t const & tp
-        )
-        {
-            return to_date(tp, true);
-        }
-
-inline ::nsBase::time::date_t
-    to_local_date(
-            ::nsBase::time::time_point_t const & tp
-        )
-        {
-            return to_date(tp, false);
-        }
-
-}
+}}
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //  Duration
 //
-namespace std::chrono
+namespace std{namespace chrono
 {
 // convert into a number of seconds with fractionals as string 'sss.sss'
 ::std::string
@@ -325,7 +262,6 @@ namespace std::chrono
 ::std::string
     to_string_HH_mm_ss(
             ::nsBase::time::time_duration_optional_t const &
-        ,   bool                                             with_micros = {}
         );
 
 [[nodiscard]] inline constexpr ::std::strong_ordering
@@ -339,32 +275,13 @@ namespace std::chrono
 
             return a.has_value() <=> b.has_value();
         }
-}
+}}
 
-namespace nsBase::time
+
+namespace nsBase{namespace time
 {
 ::nsBase::time::time_duration_optional_t
     duration_from_HH_mm_ss(
-            ::std::string_view const & hhmmsss
+            ::std::string const & hhmmsss
         );
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-//  Date
-//
-namespace std::chrono
-{
-
-inline ::std::string
-to_string(
-    ::nsBase::time::date_t const & d
-)
-{
-    return      ::std::to_string(static_cast<int>(         d. year() ))
-        + "_" + ::std::to_string(static_cast<int>(unsigned(d.month())))
-        + "_" + ::std::to_string(static_cast<int>(unsigned(d.  day())))
-        ;
-}
-
-}
+}}

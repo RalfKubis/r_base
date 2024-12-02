@@ -10,6 +10,7 @@
 
 namespace nsBase
 {
+static auto log_scope = "nsBase.file";
 
 void
 foreachSubdirectory(
@@ -22,8 +23,17 @@ foreachSubdirectory(
 
     for (auto const & entry : ::fs::directory_iterator(dir))
     {
-        if (::fs::is_directory(entry.status()))
-            action(entry.path());
+        try
+        {
+            if (!::fs::is_directory(entry.status()))
+                continue;
+        }
+        catch(...)
+        {
+            continue;
+        }
+
+        action(entry.path());
     }
 }
 
@@ -51,31 +61,36 @@ file_read_all(
 )
 {
     auto const
-        c_file_size_max_accepted = 100000000_sz;
+        c_file_size_max_accepted = 5'000'000'000_sz;
+
+    if (!::fs::is_regular_file(path))
+        "f4a3b3e5-0b4c-4993-b12c-6528e9000ec1"_log[log_scope]
+        ("this is not a regular file '${path}'")
+        .path(path)
+        .throw_error()
+        ;
 
     ::std::ifstream
-        stream(path.u8string(), ::std::ios::binary | ::std::ios::ate);
+        stream {path, ::std::ios::in | ::std::ios::binary | ::std::ios::ate};
 
     if (!stream)
-    {
-        throw Error(Log(u8"e5c20901-f77e-4c5a-bdaa-cdd36fbe2828"_uuid)
-            .error()
-            .message("unable to open '${path}'")
-            .path(path)
-            );
-    }
+        "e5c20901-f77e-4c5a-bdaa-cdd36fbe2828"_log[log_scope]
+        ("unable to open file '${path}'")
+        .path(path)
+        .throw_error()
+        ;
 
     ::std::size_t
         size = stream.tellg();
 
     if (size > c_file_size_max_accepted)
-    {
-        throw Error(Log(u8"0436ac75-9bed-4dc0-834f-ed4e1b618246"_uuid)
-            .error()
-            .message("file too large; accepting '${count}' bytes or less ")
-            .count(c_file_size_max_accepted)
-            );
-    }
+        "0436ac75-9bed-4dc0-834f-ed4e1b618246"_log[log_scope]
+        ("file '${path}' is too large - accepting '${count}' bytes or less but got '${size}'")
+        .path(path)
+        .count(c_file_size_max_accepted)
+        ("size", size)
+        .throw_error()
+        ;
 
     ::std::string
         buffer(size,'\0');
@@ -83,16 +98,71 @@ file_read_all(
     stream.seekg(0);
 
     if (!stream.read(&buffer[0], size))
-    {
-        throw Error(Log(u8"7dc99c8c-d2e0-4286-aca4-9a82ac51f32d"_uuid)
-            .error()
-            .message("unable to read '${path}'")
-            .path(path)
-            );
-    }
+        "7dc99c8c-d2e0-4286-aca4-9a82ac51f32d"_log[log_scope]
+        ("unable to read file '${path}'")
+        .path(path)
+        .throw_error()
+        ;
 
     return buffer;
 }
+
+
+::std::basic_string<::std::uint8_t>
+file_read_all_bytes(
+    ::fs::path const & path
+)
+{
+    auto const
+        c_file_size_max_accepted = 5'000'000'000_sz;
+
+    if (!::fs::is_regular_file(path))
+        "23257cd9-db55-4082-bc4e-acf91a211f29"_log[log_scope]
+        ("this is not a regular file '${path}'")
+        .path(path)
+        .throw_error()
+        ;
+
+    ::std::ifstream
+        stream {path, ::std::ios::in | ::std::ios::binary | ::std::ios::ate};
+
+    if (!stream)
+        "5b429237-3602-4abe-a0b4-f7ef3fed7bbe"_log[log_scope]
+        ("unable to open file '${path}'")
+        .path(path)
+        .throw_error()
+        ;
+
+    ::std::size_t
+        size = stream.tellg();
+
+    if (!size)
+        return {};
+
+    if (size > c_file_size_max_accepted)
+        "63177b7a-a5d6-4940-a8c3-e9c37132a7e5"_log[log_scope]
+        ("file '${path}' is too large - accepting '${count}' bytes or less but got '${size}'")
+        .path(path)
+        .count(c_file_size_max_accepted)
+        ("size", size)
+        .throw_error()
+        ;
+
+    ::std::basic_string<::std::uint8_t>
+        buffer(size, 0);
+
+    stream.seekg(0);
+
+    if (!stream.read(reinterpret_cast<char*>(&buffer[0]), size))
+        "9f003173-a71d-4f5f-b47d-543119a1e1db"_log[log_scope]
+        ("unable to read file '${path}'")
+        .path(path)
+        .throw_error()
+        ;
+
+    return buffer;
+}
+
 
 
 void

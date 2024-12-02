@@ -12,6 +12,7 @@
 #include "r_base/Error.h"
 #include "r_base/expected.h"
 
+
 namespace nsBase
 {
 /**
@@ -53,6 +54,12 @@ void
             ::fs::path        const & file_path
         ,   ::std::string     const & content
         ,   ::std::ios_base::openmode mode = ::std::ios::binary | ::std::ios::trunc
+        );
+
+// throws
+::std::basic_string<::std::uint8_t>
+    file_read_all_bytes(
+            ::fs::path const & path
         );
 
 }

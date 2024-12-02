@@ -1,16 +1,12 @@
-﻿r_target(r_base)
-
-################################################################################
-#   external
-################################################################################
+﻿x_target(r_base)
 
 
 ################################################################################
 #   sources
 ################################################################################
 
-add_sources(.)
-add_sources(commandline)
+x_add_sources(.)
+x_add_sources(commandline)
 
 
 ################################################################################
@@ -25,7 +21,7 @@ add_library(
 
 
 #   target-specific properties
-r_target_add_defaults(
+x_target_add_defaults(
         ${target}
     )
 
@@ -33,7 +29,10 @@ r_target_add_defaults(
 target_link_libraries(
         ${target}
     PUBLIC
-        ${META_PROJECT_NAME}::fmt
+        CONAN_PKG::stduuid
+        CONAN_PKG::fmt
+    PRIVATE
+        CONAN_PKG::nlohmann_json
     )
 
 if ( CMAKE_HOST_UNIX )

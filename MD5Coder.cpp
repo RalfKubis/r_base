@@ -314,7 +314,7 @@ MD5Coder::merge(
 )
 {
     if (DBC_FAIL(!context->digest))
-        throw Error(Log(u8"20aaaa39-5a85-4f4d-952e-61e050fcfb63"_uuid).message("coder was already finalized"));
+        "20aaaa39-5a85-4f4d-952e-61e050fcfb63"_log("coder was already finalized").throw_error();
 
     MD5Update(context.get(), (unsigned char*)buffer, buffer_len);
 }
@@ -359,6 +359,18 @@ MD5Coder &
 
 MD5Coder &
     operator<<(
+            MD5Coder          & c
+        ,   ::std::basic_string<::std::uint8_t> const & s
+        )
+        {
+            if (!s.empty())
+                c.merge(s.data(), s.size());
+            return c;
+        }
+
+
+MD5Coder &
+    operator<<(
             MD5Coder      & c
         ,   MD5     const & d
         )
@@ -374,8 +386,8 @@ MD5Coder &
         ,   ::uuids::uuid const & d
         )
         {
-            for (auto it=d.begin() ; it!=d.end() ; ++it)
-                c.merge(&(*it), 1);
+            for (auto b : d.as_bytes())
+                c.merge(&b, 1);
             return c;
         }
 

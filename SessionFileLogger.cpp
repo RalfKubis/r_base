@@ -19,10 +19,10 @@ namespace
             static ::std::atomic<::std::recursive_mutex*>
                 mutex(nullptr);
 
-            if (mutex.load()==nullptr)
+            if (!mutex.load())
             {
                 ::std::recursive_mutex *
-                    null = nullptr;
+                    null {};
 
                 auto m = ::std::make_unique<::std::recursive_mutex>();
 
@@ -37,8 +37,7 @@ namespace
 
 SessionFileLogger::~SessionFileLogger()
 {
-    if (log_file())
-        ::std::fclose(log_file());
+    dispose();
 }
 
 
@@ -47,6 +46,17 @@ SessionFileLogger::SessionFileLogger(
 )
 {
     *this = ::std::move(rhs);
+}
+
+
+void
+SessionFileLogger::dispose()
+{
+    if (log_file())
+    {
+        ::std::fclose(log_file());
+        log_file_clear();
+    }
 }
 
 
@@ -70,7 +80,7 @@ SessionFileLogger::operator=(
 
 namespace
 {
-fs::path
+::fs::path
     eff_path(
             SessionFileLogger const & l
         )
@@ -112,12 +122,16 @@ SessionFileLogger::operator()(
     if (log_file_path().empty())
     {
         if (time().empty())
-            time_assign(log.time_as_string());
+            time_assign(to_string(log.time()));
 
         log_file_path_assign(eff_path(*this));
+    }
 
+    if (!log_file())
+    {
         auto
             log_dir_abs = log_file_path().parent_path();
+
         if (!log_dir_abs.empty() && !::fs::exists(log_dir_abs))
             ::fs::create_directories(log_dir_abs);
 
@@ -128,7 +142,7 @@ SessionFileLogger::operator()(
         return;
 
     auto
-        line = log.serialize(Log::Format::JSON) + "\n";
+        line = log.serialize() + "\n";
 
     ::std::fwrite(line.c_str(), line.size(), 1, log_file());
     ::std::fflush(log_file());

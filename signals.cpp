@@ -10,7 +10,7 @@ namespace nsBase
 {
 using namespace ::nsBase;
 using namespace ::std::string_literals;
-using namespace uuids;
+using namespace ::uuids;
 
 namespace
 {
@@ -81,17 +81,17 @@ uuid
 }
 
 
-void
+static void
 signal_handler(
     int signal
 )
 {
-    Log("c3c67049-cef2-4ba8-b9c3-4f8aa761688d"_uuid)
+    "c3c67049-cef2-4ba8-b9c3-4f8aa761688d"_log
+        ("Received signal [${data}] - ${description}")
         .critical()
         .event(signal_to_uuid(signal))
-        .message("Received signal [${data}] - ${description}")
         .data(signal_to_string(signal))
-        .att("description",signal_to_description(signal))
+        ("description",signal_to_description(signal))
         ;
 
     // invoke the default handler
@@ -111,7 +111,7 @@ signal_handler(
 
 
 void
-install_signal_handler()
+install_signal_logger()
 {
     auto
         add = [](

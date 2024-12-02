@@ -25,19 +25,21 @@
 
 #include <fmt/format.h>
 
+#include <nlohmann/json/json.hpp>
+
 #if defined __linux__
-#include "unix-common/my_unistd.h"
+#include <unistd.h>
 #include <limits.h>
 #include <pwd.h>
 #endif
 
-#if defined win_x86_32
+#ifdef _WIN32
 #include <Windows.h>
 #include <Lmcons.h>
 #endif
 
+
 using namespace ::std::string_literals;
-using namespace ::uuids;
 
 namespace
 {
@@ -46,12 +48,12 @@ namespace
 obtain_mutex()
 {
     static ::std::atomic<::std::mutex*>
-        consumer_mutex(nullptr);
+        consumer_mutex({});
 
-    if (consumer_mutex.load()==nullptr)
+    if (!consumer_mutex.load())
     {
         ::std::mutex *
-            null = nullptr;
+            null {};
 
         auto m = ::std::make_unique<::std::mutex>();
 
@@ -76,7 +78,7 @@ t_consumers &
     obtain_consumers()
         {
             static t_consumers *
-                consumers = nullptr;
+                consumers {};
 
             if (!consumers)
                 consumers = new t_consumers;
@@ -106,7 +108,17 @@ class Log_Impl
         )
 
     R_PROPERTY_(
+            status
+        ,   Log::Status
+        )
+
+    R_PROPERTY_(
             application
+        ,   ::uuids::uuid
+        )
+
+    R_PROPERTY_(
+            application_instance
         ,   ::uuids::uuid
         )
 
@@ -137,7 +149,7 @@ class Log_Impl
 
     R_PROPERTY_(
             time
-        ,   ::std::chrono::time_point<::std::chrono::system_clock>
+        ,   ::nsBase::time::time_point_t
         )
 
     R_PROPERTY_(
@@ -160,6 +172,15 @@ class Log_Impl
         ,   ::std::vector<::uuids::uuid>
         )
 
+    R_PROPERTY_3M(
+            scope
+        ,   ::std::string
+        )
+
+    R_PROPERTY_3M(
+            message
+        ,   ::std::string
+        )
 //@}
 
 
@@ -179,38 +200,20 @@ class Log_Impl
 
 Log::~Log()
 {
-    if (!p)
-        return;  // content was moved
-
-    if (!do_broadcast())
-        return;
-
-    if (time::is_null(time()))
-        time(current::time());
-
-    ::std::unique_lock<::std::mutex>
-        guard(obtain_mutex());
-
-    // deep copy
-    auto
-        consumers = obtain_consumers();
-
-    guard.unlock();
-
-    for (auto & c : consumers)
-        c.second(*this);
+    broadcast_if();
 }
 
 
 Log::Log(
     ::uuids::uuid const & creator_id
 )
-:   p(::std::make_unique<Log_Impl>())
+:   p {::std::make_unique<Log_Impl>()}
 {
-    if (creator_id)
+    if (!creator_id.is_nil())
     {
         id(::uuids::uuid_system_generator{}());
         application(current::application_id());
+        application_instance(current::application_instance_id());
         session(current::thread_session_id());
         creator(creator_id);
         host(current::host());
@@ -225,7 +228,7 @@ Log::Log(
 
 
 Log::Log()
-:   Log(::uuids::uuid())
+:   Log {::uuids::uuid{}}
 {
 }
 
@@ -233,7 +236,7 @@ Log::Log()
 Log::Log(
     Log && other
 )
-:   p(::std::move(other.p))
+:   p {::std::move(other.p)}
 {
 }
 
@@ -241,15 +244,81 @@ Log::Log(
 Log::Log(
     Log const & other
 )
-:   p(::std::make_unique<Log_Impl>(*other.p)) // deep copy
 {
+    if (other.p)
+        p = ::std::make_unique<Log_Impl>(*other.p); // deep copy
+
+    do_broadcast_assign(false);
+}
+
+
+Log::Log(
+    Log_Impl const & other
+)
+:   p {::std::make_unique<Log_Impl>(other)} // deep copy
+{
+}
+
+
+Log
+Log::copy() const
+{
+    if (!p)
+        "83eacc55-9970-4c2e-bc31-5a9c369cfcce"_log().throw_error();
+
+    return *p.get();
+}
+
+
+Log &&
+Log::move()
+{
+    return ::std::move(*this);
+}
+
+
+void
+Log::broadcast_if()
+{
+    if (!p)
+        return;  // content was moved
+
+    if (!do_broadcast())
+        return;
+
+    disarm();
+
+    if (time::is_null(time()))
+        time(current::time());
+
+    ::std::unique_lock<::std::mutex>
+        guard(obtain_mutex());
+
+    // deep copy
+    auto
+        consumers = obtain_consumers();
+
+    guard.unlock();
+
+    for (auto & [consumer_id, consumer_func] : consumers)
+        consumer_func(*this);
 }
 
 
 void
 Log::broadcast_if_and_clear()
 {
-    operator=(Log());
+    operator=(Log{});
+}
+
+
+void
+Log::throw_error()
+{
+    if (time::is_null(time()))
+        time(current::time());
+
+    throw Error{move()};
 }
 
 
@@ -260,14 +329,15 @@ Log::do_broadcast() const
 }
 
 
-void
+Log &
 Log::do_broadcast_assign(bool val)
 {
     p->do_broadcast_assign(val);
+    return *this;
 }
 
 
-::uuids::uuid
+::uuids::uuid const &
 Log::id() const
 {
     return p->id();
@@ -312,7 +382,22 @@ Log::level_raise_to(
 }
 
 
-::uuids::uuid
+Log::Status
+Log::status() const
+{
+    return p->status();
+}
+
+
+Log &
+Log::status(Log::Status v)
+{
+    p->status_assign(v);
+    return *this;
+}
+
+
+::uuids::uuid const &
 Log::application() const
 {
     return p->application();
@@ -327,7 +412,22 @@ Log::application(::uuids::uuid const & v)
 }
 
 
-::std::string
+::uuids::uuid const &
+Log::application_instance() const
+{
+    return p->application_instance();
+}
+
+
+Log &
+Log::application_instance(::uuids::uuid const & v)
+{
+    p->application_instance_assign(v);
+    return *this;
+}
+
+
+::std::string const &
 Log::version() const
 {
     return p->version();
@@ -335,14 +435,16 @@ Log::version() const
 
 
 Log &
-Log::version_(::std::string const & v)
+Log::version(
+    ::std::string_view const & v
+)
 {
-    p->version_assign(v);
+    p->version_assign(::std::string{v});
     return *this;
 }
 
 
-::uuids::uuid
+::uuids::uuid const &
 Log::session() const
 {
     return p->session();
@@ -357,7 +459,7 @@ Log::session(::uuids::uuid const & v)
 }
 
 
-::uuids::uuid
+::uuids::uuid const &
 Log::creator() const
 {
     return p->creator();
@@ -372,7 +474,7 @@ Log::creator(::uuids::uuid const & v)
 }
 
 
-::uuids::uuid
+::uuids::uuid const &
 Log::event() const
 {
     return p->event();
@@ -387,7 +489,7 @@ Log::event(::uuids::uuid const & v)
 }
 
 
-::nsBase::time::time_point_t
+::nsBase::time::time_point_t const &
 Log::time() const
 {
     return p->time();
@@ -402,22 +504,7 @@ Log::time(::nsBase::time::time_point_t const & v)
 }
 
 
-::std::string
-Log::time_as_string() const
-{
-    return to_string(time());
-}
-
-
-Log &
-Log::time_from_string(::std::string const & s)
-{
-    time(time::time_from_string(s));
-    return *this;
-}
-
-
-::std::string
+::std::string const &
 Log::host() const
 {
     return p->host();
@@ -425,14 +512,48 @@ Log::host() const
 
 
 Log &
-Log::host(::std::string const & v)
+Log::host(
+    ::std::string_view const & v
+)
 {
-    p->host_assign(v);
+    p->host_assign(::std::string{v});
     return *this;
 }
 
 
-::std::string
+::std::string const &
+Log::scope() const
+{
+    return p->scope();
+}
+
+
+Log &
+Log::scope(::std::string_view const & v)
+{
+    p->scope_mutable() = v;
+    return *this;
+}
+
+
+::std::string const &
+Log::message() const
+{
+    return p->message();
+}
+
+
+Log &
+Log::message(
+    ::std::string_view const & v
+)
+{
+    p->message_mutable() = v;
+    return *this;
+}
+
+
+::std::string const &
 Log::user() const
 {
     return p->user();
@@ -440,14 +561,16 @@ Log::user() const
 
 
 Log &
-Log::user(::std::string const & v)
+Log::user(
+    ::std::string_view const & v
+)
 {
-    p->user_assign(v);
+    p->user_assign(::std::string{v});
     return *this;
 }
 
 
-::std::string
+::std::string const &
 Log::thread() const
 {
     return p->thread();
@@ -455,9 +578,11 @@ Log::thread() const
 
 
 Log &
-Log::thread(::std::string const & v)
+Log::thread(
+    ::std::string_view const & v
+)
 {
-    p->thread_assign(v);
+    p->thread_assign(::std::string{v});
     return *this;
 }
 
@@ -470,10 +595,13 @@ Log::trace() const
 
 
 Log &
-Log::trace(::std::string const & v)
+Log::trace(
+    ::std::string_view const & v
+)
 {
-    for (auto s : split(v,","s))
-        trace(::uuids::uuid(s));
+    for (auto s : split(::std::string{v},","s))
+        if (auto u = ::uuids::uuid::from_string(s))
+            trace(*u);
 
     return *this;
 }
@@ -487,7 +615,7 @@ Log::trace(::uuids::uuid const & v)
 }
 
 
-std::shared_ptr<Log::ConsumerRegistrationDisposer>
+::std::shared_ptr<Log::ConsumerRegistrationDisposer>
 Log::consumer_register(
     ::std::function<void(Log &)>  const & func
 )
@@ -512,8 +640,8 @@ Log::consumer_register(
 // de-serialize
 Log &
 Log::property(
-    ::std::string const & key
-,   ::std::string const & value
+    ::std::string_view const & key
+,   ::std::string_view const & value
 )
 {
     if (DBC_FAIL(p))
@@ -522,23 +650,27 @@ Log::property(
     if (DBC_FAIL(!key.empty()))
         return *this;
 
-    if (DBC_FAIL(key[0]=='_'))
+    if (DBC_FAIL(key[0] == '_' || key=="scope" || key=="message"))
         return *this;
 
-    if (key==u8"_id"s            )  return id(uuid(value));
-    if (key==u8"_level"s         )  return level(level_from_string(value).value_or(Level::DEBUG));
-    if (key==u8"_id_application"s)  return application(uuid(value));
-    if (key==u8"_version"s       )  return version(value);
-    if (key==u8"_id_session"s    )  return session(uuid(value));
-    if (key==u8"_id_creator"s    )  return creator(uuid(value));
-    if (key==u8"_id_event"s      )  return event(uuid(value));
-    if (key==u8"_time"s          )  return time_from_string(value);
-    if (key==u8"_host"s          )  return host(value);
-    if (key==u8"_user"s          )  return user(value);
-    if (key==u8"_thread"s        )  return thread(value);
-    if (key==u8"_trace"s         )  return trace(value);
+    auto as_uuid = [&](){return ::nsBase::uuids::from_string_with_empty_to_NIL(value);};
 
-    //DBC_ASSERT(false);
+    if (key=="_id"s                     )  return id(as_uuid());
+    if (key=="_level"s                  )  return level(level_from_string(value).value_or(Level::DEBUG));
+    if (key=="_status"s                 )  return status(status_from_string(value).value_or(Status::OK));
+    if (key=="_id_application"s         )  return application(as_uuid());
+    if (key=="_id_application_instance"s)  return application_instance(as_uuid());
+    if (key=="_version"s                )  return version(value);
+    if (key=="_id_session"s             )  return session(as_uuid());
+    if (key=="_id_creator"s             )  return creator(as_uuid());
+    if (key=="_id_event"s               )  return event(as_uuid());
+    if (key=="_time"s                   )  return time(time::time_from_string_utc_YYYY_MM_DD_HH_mm_ss_mmm(value).value_or(time::time_point_t{}));
+    if (key=="_host"s                   )  return host(value);
+    if (key=="_user"s                   )  return user(value);
+    if (key=="_thread"s                 )  return thread(value);
+    if (key=="_trace"s                  )  return trace(value);
+    if (key=="scope"s                   )  return scope(value);
+    if (key=="message"s                 )  return message(value);
 
     return *this;
 }
@@ -547,24 +679,28 @@ Log::property(
 // serialize
 ::std::optional<::std::string>
 Log::property(
-    ::std::string const & key
+    ::std::string_view const & key
 ) const
 {
     if (!p)
         return {};  // content was moved
 
-    if (key==u8"_id"s            && id()                  ) return to_string(id());
-    if (key==u8"_level"s         && true                  ) return to_string(level());
-    if (key==u8"_id_application"s&& application()         ) return to_string(application());
-    if (key==u8"_version"s       && !version().empty()    ) return version();
-    if (key==u8"_id_session"s    && session()             ) return to_string(session());
-    if (key==u8"_id_creator"s    && creator()             ) return to_string(creator());
-    if (key==u8"_id_event"s      && event()               ) return to_string(event());
-    if (key==u8"_time"s          && !time::is_null(time())) return time_as_string();
-    if (key==u8"_host"s          && !host().empty()       ) return host();
-    if (key==u8"_user"s          && !user().empty()       ) return user();
-    if (key==u8"_thread"s        && true                  ) return thread();
-    if (key==u8"_trace"s         && !p->trace().empty()   ) return trace();
+    if (key=="_id"s                         && !id().is_nil()                   ) return to_string(id());
+    if (key=="_level"s                      && true                             ) return to_string(level());
+    if (key=="_status"s                     && true                             ) return to_string(status());
+    if (key=="_id_application"s             && !application().is_nil()          ) return to_string(application());
+    if (key=="_id_application_instance"s    && !application_instance().is_nil() ) return to_string(application_instance());
+    if (key=="_version"s                    && !version().empty()               ) return version();
+    if (key=="_id_session"s                 && !session().is_nil()              ) return to_string(session());
+    if (key=="_id_creator"s                 && !creator().is_nil()              ) return to_string(creator());
+    if (key=="_id_event"s                   && !event().is_nil()                ) return to_string(event());
+    if (key=="_time"s                       && !time::is_null(time())           ) return to_string_iso_utc(time());
+    if (key=="_host"s                       && !host().empty()                  ) return host();
+    if (key=="_user"s                       && !user().empty()                  ) return user();
+    if (key=="_thread"s                     && true                             ) return thread();
+    if (key=="_trace"s                      && !p->trace().empty()              ) return trace();
+    if (key=="scope"s                       && !scope().empty()                 ) return scope();
+    if (key=="message"s                     && !message().empty()               ) return message();
 
     return {};
 }
@@ -647,27 +783,88 @@ level_from_string(
 
 
 
-::std::map<::std::string,std::string>
+::std::string
+to_string(
+    Log::Status s
+)
+{
+    switch (s)
+    {
+    case Log::Status::OK                  : return "OK";
+    case Log::Status::CANCELLED           : return "CANCELLED";
+    case Log::Status::UNKNOWN             : return "UNKNOWN";
+    case Log::Status::INVALID_ARGUMENT    : return "INVALID_ARGUMENT";
+    case Log::Status::DEADLINE_EXCEEDED   : return "DEADLINE_EXCEEDED";
+    case Log::Status::NOT_FOUND           : return "NOT_FOUND";
+    case Log::Status::ALREADY_EXISTS      : return "ALREADY_EXISTS";
+    case Log::Status::PERMISSION_DENIED   : return "PERMISSION_DENIED";
+    case Log::Status::UNAUTHENTICATED     : return "UNAUTHENTICATED";
+    case Log::Status::RESOURCE_EXHAUSTED  : return "RESOURCE_EXHAUSTED";
+    case Log::Status::FAILED_PRECONDITION : return "FAILED_PRECONDITION";
+    case Log::Status::ABORTED             : return "ABORTED";
+    case Log::Status::OUT_OF_RANGE        : return "OUT_OF_RANGE";
+    case Log::Status::UNIMPLEMENTED       : return "UNIMPLEMENTED";
+    case Log::Status::INTERNAL            : return "INTERNAL";
+    case Log::Status::UNAVAILABLE         : return "UNAVAILABLE";
+    case Log::Status::DATA_LOSS           : return "DATA_LOSS";
+    default                               : return "<error>";
+    }
+}
+
+
+::std::optional<Log::Status>
+status_from_string(
+    ::std::string_view s
+)
+{
+    if (s=="OK"                 ) return Log::Status::OK                 ;
+    if (s=="CANCELLED"          ) return Log::Status::CANCELLED          ;
+    if (s=="UNKNOWN"            ) return Log::Status::UNKNOWN            ;
+    if (s=="INVALID_ARGUMENT"   ) return Log::Status::INVALID_ARGUMENT   ;
+    if (s=="DEADLINE_EXCEEDED"  ) return Log::Status::DEADLINE_EXCEEDED  ;
+    if (s=="NOT_FOUND"          ) return Log::Status::NOT_FOUND          ;
+    if (s=="ALREADY_EXISTS"     ) return Log::Status::ALREADY_EXISTS     ;
+    if (s=="PERMISSION_DENIED"  ) return Log::Status::PERMISSION_DENIED  ;
+    if (s=="UNAUTHENTICATED"    ) return Log::Status::UNAUTHENTICATED    ;
+    if (s=="RESOURCE_EXHAUSTED" ) return Log::Status::RESOURCE_EXHAUSTED ;
+    if (s=="FAILED_PRECONDITION") return Log::Status::FAILED_PRECONDITION;
+    if (s=="ABORTED"            ) return Log::Status::ABORTED            ;
+    if (s=="OUT_OF_RANGE"       ) return Log::Status::OUT_OF_RANGE       ;
+    if (s=="UNIMPLEMENTED"      ) return Log::Status::UNIMPLEMENTED      ;
+    if (s=="INTERNAL"           ) return Log::Status::INTERNAL           ;
+    if (s=="UNAVAILABLE"        ) return Log::Status::UNAVAILABLE        ;
+    if (s=="DATA_LOSS"          ) return Log::Status::DATA_LOSS          ;
+
+    return {};
+}
+
+
+
+::std::map<::std::string,::std::string>
 Log::properties_and_attributes() const
 {
-    ::std::map<::std::string,std::string>
+    ::std::map<::std::string,::std::string>
         m;
 
-    auto
+    static const auto
         keys =
             {
-                u8"_id"s
-            ,   u8"_level"s
-            ,   u8"_id_application"s
-            ,   u8"_version"s
-            ,   u8"_id_session"s
-            ,   u8"_id_creator"s
-            ,   u8"_id_event"s
-            ,   u8"_time"s
-            ,   u8"_host"s
-            ,   u8"_user"s
-            ,   u8"_thread"s
-            ,   u8"_trace"s
+                "_id"s
+            ,   "_level"s
+            ,   "_status"s
+            ,   "_id_application"s
+            ,   "_id_application_instance"s
+            ,   "_version"s
+            ,   "_id_session"s
+            ,   "_id_creator"s
+            ,   "_id_event"s
+            ,   "_time"s
+            ,   "_host"s
+            ,   "_user"s
+            ,   "_thread"s
+            ,   "_trace"s
+            ,   "scope"s
+            ,   "message"s
             };
 
     for (auto & key : keys)
@@ -687,220 +884,20 @@ Log::properties_and_attributes() const
 
 ::std::string
 Log::serialize(
-    Format const inFormat
-,   int    const inIndent
+    bool pretty
 ) const
 {
     if (!p)
         return {};  // content was moved
 
-    auto
-        indent = ::std::max(inIndent,-1);
+    ::nlohmann::json
+        j;
+        for (auto & [k,v] : properties_and_attributes()) j[k] = v;
 
-    ::std::string
-        retVal;
-
-    bool
-        doIndent = indent>=0;
-
-    // base indent
-    ::std::string
-        i0;
-    // inner indent
-    ::std::string
-        i01;
-    // end of token
-    ::std::string
-        eot(" ");
-    // comma
-    ::std::string
-        comma = ", ";
-
-    if ( doIndent )
-    {
-        i0.resize(indent, ' ');
-        i01.resize(4, ' ');
-        eot = "\n";
-        comma = ",   ";
-    }
-
-    auto
-        esc = []( ::std::string const & str ) -> ::std::string
-            {
-                auto a = replaced_all(str, "\\", "\\\\");
-                auto b = replaced_all(  a, "\"", "\\\"" );
-//                auto c = replaced_all(  b, "\0", "\\0" );
-                return b;
-            };
-
-    auto
-        pairs = properties_and_attributes();
-
-    switch (inFormat)
-    {
-    ////////////////////////////////////////////////////////////
-    case Format::JSON :
-        {
-            retVal += i0 + "TRACE" + eot;
-            retVal += i0 + "{" + eot;
-
-            auto num = 0;
-            for (auto & kv : pairs)
-            {
-                retVal += i0;
-                retVal +=  (num==0 ? i01 : comma);
-                retVal +=  '"';
-                retVal +=  esc(kv.first);
-                retVal +=  "\":\"";
-                retVal +=  esc(kv.second);
-                retVal +=  '"';
-                retVal +=  eot;
-
-                num++;
-            }
-
-            retVal += i0 + "}" + eot;
-        }
-        break;
-
-
-    ////////////////////////////////////////////////////////////
-    case Format::XML :
-        {
-            retVal += i0 + "<TRACE" + eot;
-
-            for (auto & kv : pairs)
-            {
-                retVal
-                    += (i0 + i01)
-                    +  esc(kv.first)
-                    +  "=\""
-                    +  esc(kv.second)
-                    +  "\""
-                    +  eot
-                    ;
-            }
-
-            retVal += i0 + "/>" + eot;
-        }
-        break;
-
-
-    ////////////////////////////////////////////////////////////
-    case Format::TEXT :
-        {
-            for (auto & kv : pairs)
-            {
-                retVal
-                    += i0
-                    +  kv.first
-                    +  "="
-                    +  kv.second
-                    +  "\n"
-                    ;
-            }
-        }
-        break;
-    ////////////////////////////////////////////////////////////
-    }
-
-    return retVal;
+    return j.dump(
+            pretty ? 4 : -1 // int indent = -1
+        );
 }
-
-
-
-namespace
-{
-Status
-readString(
-    ::std::string & inoutStream
-,   ::std::string & outValue
-)
-{
-    Status
-        retVal;
-
-    int
-        offset = 0;
-
-    auto
-        stream_is_empty = [&]()
-            {
-                return offset >= inoutStream.size();
-            };
-
-    do // BLOCK
-    {
-        if (stream_is_empty())
-            FailBreak("ef4538dd-ea03-409d-ad49-62491bcbde26"_uuid);
-
-        outValue.clear();
-
-        // goto next "
-        for(;;)
-        {
-            if (stream_is_empty())
-                FailBreak("51bca420-f057-4c85-aa9e-d3face3ccb87"_uuid);
-
-            if (inoutStream[offset]=='"')
-                break;
-
-            offset++;
-        }
-        BreakOnFail;
-
-        // skip "
-        offset++;
-
-        // pull string chars
-        bool isEscaped = false;
-        for(;;)
-        {
-            if (stream_is_empty())
-                FailBreak("6de258c6-c248-4303-989a-5e95e354670a"_uuid);
-
-            if (    !isEscaped
-                &&  inoutStream[offset]=='\\'
-            )
-            {
-                isEscaped = true;
-                offset++;
-                continue;
-            }
-
-            // read escaped character
-            if (isEscaped)
-            {
-                isEscaped = false;
-                outValue.push_back(inoutStream[offset]);
-                offset++;
-                continue;
-            }
-
-            // ending "
-            if (inoutStream[offset]=='"')
-            {
-                offset++;
-                break;
-            }
-
-            // pop character
-            outValue.push_back(inoutStream[offset]);
-            offset++;
-        }
-        BreakOnFail;
-    }
-    while(false); // FIN
-
-    inoutStream.erase(0,::std::min<int>(offset,inoutStream.size()));
-
-    if (!retVal)
-        outValue.clear();
-
-    return retVal;
-}
-}
-
 
 
 Log &
@@ -915,92 +912,46 @@ Log::operator=(
 }
 
 
-Log &
-Log::operator=(
-    Log const & rhs
-)
-{
-    if (this!=&rhs)
-        *p = *rhs.p;
-
-    return *this;
-}
-
-
 ::std::optional<Log>
 Log::deserialize(
-    ::std::string  const & data
-,   Format               format
+    ::std::string_view  const & data
 )
 {
-    ::std::string
-        stream = data;
-
     ::std::optional<Log>
         log;
 
-    log.emplace();
+    auto stream = data;
 
-    Status
-        retVal;
+    // crop optional prefix up to the first '{'-character
+    if (auto i=data.find_first_of('{'); i!=::std::string::npos)
+        stream = ::std::string_view{data.data()+i, data.size()-i};
 
-
-    switch (format)
+    try
     {
-    ////////////////////////////////////////////////////////////
-    case Format::JSON :
+        auto json = ::nlohmann::json::parse(stream);
 
-        while (contains(stream, '"'))
+        log.emplace();
+
+        for (auto const & [k_,v_] : json.items())
         {
-            ::std::string
-                key;
-            ::std::string
-                value;
-
-            retVal << readString(stream, key);
-            BreakOnFail;
-
-            retVal << readString(stream, value);
-            BreakOnFail;
-
-            if (key.empty())
-                continue;
+            auto k = ::std::string_view{k_};
+            auto v = v_.is_string() ? ::std::string{v_} : to_string(v_);
 
             auto
-                is_property = key[0] == '_';
+                is_property = k[0] == '_' || k=="scope" || k=="message";
 
             if (is_property)
-            {
-                log->property(key,value);
-            }
+                log->property(k, v);
             else
-            {
-                DBC_ASSERT(!log->attribute(key));
-                log->att(key,value);
-            }
+                log->att(k, v);
         }
-        break;
-
-
-    ////////////////////////////////////////////////////////////
-    case Format::TEXT :
-        {
-            NYI(u8"042b527d-6dcd-4c22-94dc-9bedfd7b816c"_uuid);
-        }
-        break;
-
-
-    ////////////////////////////////////////////////////////////
-    case Format::XML :
-//        DBC_NYI;
-        break;
-    ////////////////////////////////////////////////////////////
+    }
+    catch(...)
+    {
+        log.reset();
     }
 
-    if (!retVal)
-        return {};
-
-    return ::std::move(log);
+    return log;
 }
 
 
@@ -1014,7 +965,7 @@ Log::attribute_count() const
 }
 
 
-::std::map<::std::string,std::string> const &
+::std::map<::std::string,::std::string> const &
 Log::attributes() const
 {
     DBC_PRE(p);
@@ -1068,7 +1019,7 @@ Log::attributeRemoveAll()
 
 ::std::string
 Log::resolved(
-    ::std::string const & s
+    ::std::string_view const & s
 ) const
 {
     ::std::regex
@@ -1076,7 +1027,7 @@ Log::resolved(
     ::std::smatch
         match;
     auto
-        res = s;
+        res = ::std::string{s};
 
     while (::std::regex_search(res,match,regex))
     {
@@ -1108,23 +1059,53 @@ Log::resolved(
 
 ::std::string
 Log::resolved(
-    ::std::string const & s
-,   ::std::string const & key
-,   ::std::string const & value
+    ::std::string_view const & s
+,   ::std::string_view const & key
+,   ::std::string_view const & value
 ) const
 {
     try
     {
-        return ::std::regex_replace(
-                s
-            ,   ::std::regex("\\$\\{" + key + "\\}") // the resulting regex might become invalid (example: key == "line]")
-            ,   value
+        ::std::string res;
+
+        ::std::regex_replace(
+                ::std::back_inserter(res)
+            ,   s.begin()
+            ,   s.end()
+            ,   ::std::regex("\\$\\{" + ::std::string{key} + "\\}") // the resulting regex might become invalid (example: key == "line]")
+            ,   ::std::string{value}
             );
+
+        return res;
     }
     catch(...)
     {
-        return s;
+        return ::std::string{s};
     }
+}
+
+
+void
+logs_read(
+    ::std::vector<Log> & logs
+,   ::fs::path   const & path
+)
+{
+    ::std::ifstream
+        stream {path, ::std::ios::in | ::std::ios::binary};
+
+    ::std::string
+        line;
+
+    while (::std::getline(stream,line))
+        if (auto log = Log::deserialize(line))
+            logs.emplace_back(::std::move(*log));
+
+    stream.clear();
+    stream.close();
+
+    if (stream.fail())
+        "269ea192-c498-4401-bf0c-8b743398ab2e"_log().throw_error();
 }
 
 
@@ -1136,28 +1117,11 @@ log_read(
     ::std::vector<Log>
         logs;
 
-    ::std::ifstream
-        stream(path.u8string(), ::std::ios::binary);
-
-    ::std::string
-        line;
-
-    while (::std::getline(stream,line))
-    {
-        if (auto log = Log::deserialize(line,Log::Format::JSON) )
-        {
-            logs.emplace_back(::std::move(*log));
-        }
-    }
-
-    stream.clear();
-    stream.close();
-
-    if (stream.fail())
-        throw Error(Log(u8"269ea192-c498-4401-bf0c-8b743398ab2e"_uuid));
+    logs_read(logs, path);
 
     return logs;
 }
+
 
 
 void
@@ -1196,9 +1160,9 @@ log_filter_anti_flood(
             if (events.size()==max_event_count_per_creator_per_duration)
             {
                 log
-                    .att("log_limiter_message"               , u8"bandwith limit reached - probably skipping following logs of this consumer"s)
-                    .att("log_limiter_duration_milliseconds" , duration.count())
-                    .att("log_limiter_duration_max_count"    , max_event_count_per_creator_per_duration)
+                    ("log_limiter_message"               , "bandwith limit reached - probably skipping following logs of this consumer"s)
+                    ("log_limiter_duration_milliseconds" , duration.count())
+                    ("log_limiter_duration_max_count"    , max_event_count_per_creator_per_duration)
                     ;
             }
 
@@ -1210,6 +1174,36 @@ log_filter_anti_flood(
     }
 
     func(log);
+}
+
+
+Log
+log_application_execution_span(
+    Log && pattern
+)
+{
+    auto
+        begin_log = ::std::move(pattern);
+        begin_log
+            ("${service.name} ${_version} [${build_time}] git[${git_commit}] instance[${_id_application_instance}]")
+            .info()
+            .event("70ae06d0-9e8d-4af0-9083-107e17a11a02"_uuid) // event_id(EventID::session_begin))
+            .version(current::application_version())
+            ("service.name", current::application_name())
+            ("build_time"  , current::application_build_time())
+            ("git_commit"  , current::application_git_commit_id())
+            ;
+
+    auto
+        exit_log = Log{begin_log}; // deep copy
+        exit_log("exiting instance[${_id_application_instance}]")
+        .event("4f62852d-31fa-47dd-b064-356dad92fc64"_uuid) // event_id(EventID::session_end))
+        .do_broadcast_assign(true)
+        ;
+
+    begin_log = {}; // explicit emission
+
+    return exit_log;
 }
 
 }

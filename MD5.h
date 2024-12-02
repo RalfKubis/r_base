@@ -24,6 +24,11 @@ class MD5
 
     public :
         MD5(
+                ::std::string_view const & str
+            );
+
+    public :
+        MD5(
                 ::std::string const & str
             );
 

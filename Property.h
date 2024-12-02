@@ -1,8 +1,9 @@
 ﻿#pragma once
 /* Copyright (C) Ralf Kubis */
 
-
 #include "r_base/decl.h"
+#include "r_base/traits.h"
+#include "r_base/Log.h"
 
 #include <type_traits>
 
@@ -15,6 +16,10 @@ inline void
         }
 }
 
+namespace nsBase
+{
+    class Error;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /**
@@ -69,18 +74,24 @@ inline void
 
     A
         When used, the corresponding parameter is used as access modifier that
-        is applied to the _assifn() and _clear() method.
+        is applied to the mutating methods (like _assign() and _clear()).
 
     D
         When used, the corresponding parameter specifies the default value of
-        the property. for POD types, this parameter is required.
+        the property. If not used, the default initialisation is used.
+        (or zero initialisation for POD types)
 
     G
         When used, the corresponding parameter specifies a user defined
         get-method.
 
+    O
+        When used, the property might have no value. Reading an empty property
+        throws. The descriptor name_valid() is added. Setting the properties
+        value makes it valid. The method name_clear() removes its value.
+
     Q
-        When used, the corresponding parameter get this value as type qualifier.
+        When used, the corresponding parameter gets this value as type qualifier.
         This could be 'mutable' or 'const'.
 
     R
@@ -93,7 +104,7 @@ inline void
     All macros have two mandatory parameters. The NAME of the property and
     its TYPE.
     Modifier letters might require more parameters.
-    The order of the parameters corresponds to the oder of the modifier letters
+    The order of the parameters corresponds to the order of the modifier letters
     in the macro identifier, which again should ease the use of the macros.
 
 
@@ -178,8 +189,8 @@ inline void
                 mValue;                                                         \
                                                                                 \
             public : template<class ... Constructor_args>                       \
-                property_##NAME(Constructor_args&& ... args)                    \
-                    :   mValue(args...)                                         \
+                property_##NAME(Constructor_args && ... args)                   \
+                    :   mValue(::std::forward<Constructor_args>(args)...)       \
                     {                                                           \
                     }                                                           \
                                                                                 \
@@ -221,6 +232,113 @@ inline void
         private :
 
 
+#define R_PROPERTY_FIELD_O(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
+                                                                                \
+    private : class property_##NAME                                             \
+        {                                                                       \
+            public : using                                                      \
+                value_type = TYPE;                                              \
+                                                                                \
+            private : value_type                                                \
+                mValue;                                                         \
+                                                                                \
+            private : bool                                                      \
+                mValid {};                                                      \
+                                                                                \
+            public : void                                                       \
+                validate()                                                      \
+                    {                                                           \
+                        mValid = true;                                          \
+                    }                                                           \
+                                                                                \
+            public :                                                            \
+                property_##NAME()                                               \
+                    {                                                           \
+                    }                                                           \
+                                                                                \
+            public : template<class ... Constructor_args>                       \
+                property_##NAME(Constructor_args && ... args)                   \
+                    :   mValue(::std::forward<Constructor_args>(args)...)       \
+                    ,   mValid{true}                                            \
+                    {                                                           \
+                    }                                                           \
+                                                                                \
+            public : void                                                       \
+                assign(value_type const & v)                                    \
+                    {                                                           \
+                        mValue = v;                                             \
+                        mValid = true;                                          \
+                    }                                                           \
+                                                                                \
+            public : void                                                       \
+                assign(value_type && v)                                         \
+                    {                                                           \
+                        mValue = ::std::move(v);                                \
+                        mValid = true;                                          \
+                    }                                                           \
+                                                                                \
+            public : template<class ... Constructor_args> void                  \
+                emplace(Constructor_args && ... args)                           \
+                    {                                                           \
+                        mValue = value_type(::std::forward<Constructor_args>(args)...); \
+                        mValid = true;                                          \
+                    }                                                           \
+                                                                                \
+            public : void                                                       \
+                clear()                                                         \
+                    {                                                           \
+                        mValue = value_type{};                                  \
+                        mValid = {};                                            \
+                    }                                                           \
+                                                                                \
+            public : bool                                                       \
+                valid() const                                                   \
+                    {                                                           \
+                        return mValid;                                          \
+                    }                                                           \
+                                                                                \
+            public : value_type &                                               \
+                operator*()                                                     \
+                    {                                                           \
+                        using namespace ::nsBase;                               \
+                        if (!mValid)                                            \
+                            "bc0b47d5-8817-4870-8a0b-cdaeadd6ff1a"_log["sparse property"]("bad access to invalid property '${property_name}'")("property_name", ::std::string_view{#NAME})("property_type", ::std::string_view{#TYPE}).throw_FAILED_PRECONDITION(); \
+                        return mValue;                                          \
+                    }                                                           \
+                                                                                \
+            public : value_type const &                                         \
+                operator*() const                                               \
+                    {                                                           \
+                        using namespace ::nsBase;                               \
+                        if (!mValid)                                            \
+                            "75cec35c-b2ad-484f-8075-80078b6289a1"_log["sparse property"]("bad access to invalid property '${property_name}'")("property_name", ::std::string_view{#NAME})("property_type", ::std::string_view{#TYPE}).throw_FAILED_PRECONDITION(); \
+                        return mValue;                                          \
+                    }                                                           \
+                                                                                \
+            public : value_type *                                               \
+                operator->()                                                    \
+                    {                                                           \
+                        using namespace ::nsBase;                               \
+                        if (!mValid)                                            \
+                            "9228f22c-6c48-48db-a41b-b5cef3da3890"_log["sparse property"]("bad access to invalid property '${property_name}'")("property_name", ::std::string_view{#NAME})("property_type", ::std::string_view{#TYPE}).throw_FAILED_PRECONDITION(); \
+                        return &mValue;                                         \
+                    }                                                           \
+                                                                                \
+            public : value_type const *                                         \
+                operator->() const                                              \
+                    {                                                           \
+                        using namespace ::nsBase;                               \
+                        if (!mValid)                                            \
+                            "e609ce5e-7cdd-4c55-bf2c-5b9a709f2a00"_log["sparse property"]("bad access to invalid property '${property_name}'")("property_name", ::std::string_view{#NAME})("property_type", ::std::string_view{#TYPE}).throw_FAILED_PRECONDITION(); \
+                        return &mValue;                                         \
+                    }                                                           \
+        }                                                                       \
+            QUALIFIER m_##NAME;                                                 \
+        public : using                                                          \
+            property_##NAME##_type = TYPE;                                      \
+        private :
+
+
 #define R_PROPERTY_FIELD2(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )     \
                                                                                 \
     private : class property_##NAME                                             \
@@ -238,8 +356,8 @@ inline void
             R_MOVE(property_##NAME) = default;                                  \
                                                                                 \
             public : template<class ... Constructor_args>                       \
-                property_##NAME(Constructor_args&& ... args)                    \
-                    :   mValue(args...)                                         \
+                property_##NAME(Constructor_args && ... args)                   \
+                    :   mValue(::std::forward<Constructor_args>(args)...)       \
                     {                                                           \
                     }                                                           \
                                                                                 \
@@ -351,6 +469,40 @@ inline void
                 return *m_##NAME;                                                                           \
             }
 
+#define R_PROPERTY_GET_O(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+                                                                                                            \
+    public :  TYPE const *                                                                                  \
+        NAME##_if() const                                                                                   \
+            {                                                                                               \
+                if (NAME##_valid())                                                                         \
+                    return &NAME();                                                                         \
+                return {};                                                                                  \
+            }                                                                                               \
+                                                                                                            \
+    public :  ::std::optional<TYPE>                                                                         \
+        NAME##_if_as_opt() const                                                                            \
+            {                                                                                               \
+                if (NAME##_valid())                                                                         \
+                    return NAME();                                                                          \
+                return {};                                                                                  \
+            }                                                                                               \
+                                                                                                            \
+    public :  TYPE                                                                                          \
+        NAME##_or() const                                                                                   \
+            {                                                                                               \
+                if (NAME##_valid())                                                                         \
+                    return {NAME()};                                                                        \
+                return TYPE{};                                                                              \
+            }                                                                                               \
+                                                                                                            \
+    public :  TYPE &                                                                                        \
+        NAME##_mutable()                                                                                    \
+            {                                                                                               \
+                m_##NAME.validate();                                                                        \
+                return *m_##NAME;                                                                           \
+            }
+
+
 #define R_PROPERTY_GET_m(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
     public :  TYPE &                                                                                        \
         NAME##_mutable()                                                                                    \
@@ -367,10 +519,41 @@ inline void
 
 
 ////////////////////////////////////////////////////////////////////////////////
+//  Emplace
+//
+#define R_PROPERTY_EMP_O(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    public :  template<class ... Constructor_args>                                                          \
+        TYPE &                                                                                              \
+        NAME##_emplace(Constructor_args && ... args)                                                        \
+            {                                                                                               \
+                m_##NAME.emplace(::std::forward<Constructor_args>(args)...);                                \
+                                                                                                            \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return m_##NAME.operator*();                                                                \
+            }                                                                                               \
+                                                                                                            \
+    public :  template<class ... Constructor_args>                                                          \
+        TYPE &                                                                                              \
+        NAME##_obtain(Constructor_args && ... args)                                                         \
+            {                                                                                               \
+                if (!NAME##_valid())                                                                        \
+                {                                                                                           \
+                    m_##NAME.emplace(::std::forward<Constructor_args>(args)...);                            \
+                                                                                                            \
+                    using namespace R_fallback;                                                             \
+                    hash_of_memory_state_clear();                                                           \
+                }                                                                                           \
+                return m_##NAME.operator*();                                                                \
+            }
+
+
+////////////////////////////////////////////////////////////////////////////////
 //  SET
 //
 #define R_PROPERTY_SET_(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
-    ACCESSOR : void                                                                                         \
+    ACCESSOR : decltype(auto)                                                                               \
         NAME##_assign(                                                                                      \
                 TYPE const & inValue                                                                        \
             )                                                                                               \
@@ -379,9 +562,11 @@ inline void
                                                                                                             \
                 using namespace R_fallback;                                                                 \
                 hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
             }                                                                                               \
                                                                                                             \
-    ACCESSOR : void                                                                                         \
+    ACCESSOR : decltype(auto)                                                                               \
         NAME##_assign(                                                                                      \
                 TYPE && inValue                                                                             \
             )                                                                                               \
@@ -390,48 +575,213 @@ inline void
                                                                                                             \
                 using namespace R_fallback;                                                                 \
                 hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
+            }                                                                                               \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME(                                                                                               \
+                TYPE const & inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                return NAME##_assign(inValue);                                                              \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME(                                                                                               \
+                TYPE && inValue                                                                             \
+            )                                                                                               \
+            {                                                                                               \
+                return NAME##_assign(::std::move(inValue));                                                 \
             }
 
-// copy and move
-#define R_PROPERTY_SET_2(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  ) \
-    ACCESSOR : void                                                                                         \
+#define R_PROPERTY_SET_O(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    ACCESSOR : decltype(auto)                                                                               \
         NAME##_assign(                                                                                      \
                 TYPE const & inValue                                                                        \
             )                                                                                               \
             {                                                                                               \
-                    *m_##NAME = inValue;                                                                    \
+                m_##NAME.assign(inValue);                                                                   \
                                                                                                             \
-                    using namespace R_fallback;                                                             \
-                    hash_of_memory_state_clear();                                                           \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
             }                                                                                               \
                                                                                                             \
-    ACCESSOR : void                                                                                         \
+    ACCESSOR : decltype(auto)                                                                               \
         NAME##_assign(                                                                                      \
                 TYPE && inValue                                                                             \
             )                                                                                               \
             {                                                                                               \
-                     *m_##NAME = ::std::move(inValue);                                                      \
+                m_##NAME.assign(::std::move(inValue));                                                      \
                                                                                                             \
-                     using namespace R_fallback;                                                            \
-                     hash_of_memory_state_clear();                                                          \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_assign_if(                                                                                   \
+                TYPE const * inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                if (inValue)                                                                                \
+                    NAME##_assign(*inValue);                                                                \
+                                                                                                            \
+                return *this;                                                                               \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_assign_if(                                                                                   \
+                ::std::optional<TYPE> const & inValue                                                       \
+            )                                                                                               \
+            {                                                                                               \
+                if (inValue)                                                                                \
+                    NAME##_assign(*inValue);                                                                \
+                                                                                                            \
+                return *this;                                                                               \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_assign_if(                                                                                   \
+                ::std::optional<TYPE> && inValue                                                            \
+            )                                                                                               \
+            {                                                                                               \
+                if (inValue)                                                                                \
+                    NAME##_assign(::std::move(*inValue));                                                   \
+                                                                                                            \
+                return *this;                                                                               \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME(                                                                                               \
+                TYPE const & inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                return NAME##_assign(inValue);                                                              \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME(                                                                                               \
+                TYPE && inValue                                                                             \
+            )                                                                                               \
+            {                                                                                               \
+                return NAME##_assign(::std::move(inValue));                                                 \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_if(                                                                                          \
+                TYPE const * inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                return NAME##_assign_if(inValue);                                                           \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_if(                                                                                          \
+                ::std::optional<TYPE> const & inValue                                                       \
+            )                                                                                               \
+            {                                                                                               \
+                return NAME##_assign_if(inValue);                                                           \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_if(                                                                                          \
+                ::std::optional<TYPE> && inValue                                                            \
+            )                                                                                               \
+            {                                                                                               \
+                return NAME##_assign_if(::std::move(inValue));                                              \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_clone(                                                                                       \
+                TYPE const * inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                if (inValue)                                                                                \
+                    NAME##_assign(*inValue);                                                                \
+                else                                                                                        \
+                    NAME##_clear();                                                                         \
+                                                                                                            \
+                return *this;                                                                               \
+            }                                                                                               \
+                                                                                                            \
+ACCESSOR : decltype(auto)                                                                                   \
+        NAME##_clone(                                                                                       \
+                ::std::optional<TYPE> const & inValue                                                       \
+            )                                                                                               \
+            {                                                                                               \
+                if (inValue)                                                                                \
+                    NAME##_assign(*inValue);                                                                \
+                else                                                                                        \
+                    NAME##_clear();                                                                         \
+                                                                                                            \
+                return *this;                                                                               \
+            }
+
+// copy and move
+#define R_PROPERTY_SET_2(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  ) \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_assign(                                                                                      \
+                TYPE const & inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                *m_##NAME = inValue;                                                                        \
+                                                                                                            \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
+            }                                                                                               \
+                                                                                                            \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_assign(                                                                                      \
+                TYPE && inValue                                                                             \
+            )                                                                                               \
+            {                                                                                               \
+                *m_##NAME = ::std::move(inValue);                                                           \
+                                                                                                            \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
             }
 
 // move
 #define R_PROPERTY_SET_3(       NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  ) \
                                                                                                             \
-    ACCESSOR : void                                                                                         \
+    ACCESSOR : decltype(auto)                                                                               \
         NAME##_assign(                                                                                      \
                 TYPE && inValue                                                                             \
             )                                                                                               \
             {                                                                                               \
-                     *m_##NAME = ::std::move(inValue);                                                      \
+                *m_##NAME = ::std::move(inValue);                                                           \
                                                                                                             \
-                     using namespace R_fallback;                                                            \
-                     hash_of_memory_state_clear();                                                          \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
             }
 
+#if 0 //KU: R_PROPERTY_SET_3 shall support non-copyable value types, thus a copy-assignment is not supported
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_assign(                                                                                      \
+                TYPE const & inValue                                                                        \
+            )                                                                                               \
+            {                                                                                               \
+                 *m_##NAME = inValue;                                                                       \
+                                                                                                            \
+                using namespace R_fallback;                                                                 \
+                hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
+            }
+#endif
+
+
 #define R_PROPERTY_SET_3h(     NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
-    ACCESSOR : void                                                                                         \
+    ACCESSOR : decltype(auto)                                                                               \
         NAME##_assign(                                                                                      \
                 TYPE && inValue                                                                             \
             )                                                                                               \
@@ -439,10 +789,12 @@ inline void
                 SETHOOK(::std::move(inValue));                                                              \
                 using namespace R_fallback;                                                                 \
                 hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
             }
 
 #define R_PROPERTY_SET_h(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
-    ACCESSOR : void                                                                                         \
+    ACCESSOR : decltype(auto)                                                                               \
         NAME##_assign(                                                                                      \
                 TYPE const & inValue                                                                        \
             )                                                                                               \
@@ -450,6 +802,8 @@ inline void
                 SETHOOK(inValue);                                                                           \
                 using namespace R_fallback;                                                                 \
                 hash_of_memory_state_clear();                                                               \
+                                                                                                            \
+                return *this;                                                                               \
             }
 
 
@@ -472,17 +826,39 @@ inline void
 
 ////////////////////////////////////////////////////////////////////////////////
 #define R_PROPERTY_CLEAR(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
-    ACCESSOR : void                                                                                         \
+    ACCESSOR : decltype(auto)                                                                               \
         NAME##_clear()                                                                                      \
             {                                                                                               \
                 NAME##_assign( NAME##_default() );                                                          \
+                                                                                                            \
+                return *this;                                                                               \
             }
 
+////////////////////////////////////////////////////////////////////////////////
+#define R_PROPERTY_CLEAR_O(    NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    ACCESSOR : decltype(auto)                                                                               \
+        NAME##_clear()                                                                                      \
+            {                                                                                               \
+                m_##NAME.clear();                                                                           \
+                                                                                                            \
+                return *this;                                                                               \
+            }
 
 ////////////////////////////////////////////////////////////////////////////////
-#define R_PROPERTY_ISDEF(      NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+#define R_PROPERTY_VALID_O(    NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )  \
+    ACCESSOR : bool                                                                                         \
+        NAME##_valid() const                                                                                \
+            {                                                                                               \
+                return m_##NAME.valid();                                                                    \
+            }
 
-
+////////////////////////////////////////////////////////////////////////////////
+#define R_PROPERTY_OPTI_O( NAME    ,TYPE  ,ACCESSOR    ,DEFAULT    ,GETHOOK    ,QUALIFIER  ,SETHOOK  )      \
+    ACCESSOR : static bool                                                                                  \
+        NAME##_is_optional()                                                                                \
+            {                                                                                               \
+                return ::nsBase::is_optional<TYPE>();                                                       \
+            }
 
 ////////////////////////////////////////////////////////////////////////////////
 #define R_PROPERTY_ADGS(       NAME    ,TYPE   ,ACCESSOR   ,DEFAULT    ,GETHOOK                ,SETHOOK    )   \
@@ -584,6 +960,16 @@ inline void
         R_PROPERTY_SET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
         R_PROPERTY_CLEAR   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
 
+#define R_PROPERTY_O(          NAME    ,TYPE                                                               )   \
+        R_PROPERTY_FIELD_O (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_GET_O   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_EMP_O   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_CLEAR_O (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_SET_O   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_VALID_O (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
+        R_PROPERTY_OPTI_O  (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
+
 #define R_PROPERTY_2(          NAME    ,TYPE                                                               )   \
         R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
@@ -599,6 +985,12 @@ inline void
         R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
         R_PROPERTY_GET_m   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )   \
         R_PROPERTY_SET_3   (   NAME    ,TYPE   ,public     ,{}         ,0          ,           ,0          )
+
+#define R_PROPERTY_3MQ(        NAME    ,TYPE                                       ,QUALIFIER              )   \
+        R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_GET_    (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_GET_m   (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,0          )   \
+        R_PROPERTY_SET_3   (   NAME    ,TYPE   ,public     ,{}         ,0          ,QUALIFIER  ,0          )
 
 #define R_PROPERTY_3AM(        NAME    ,TYPE   ,ACCESSOR                                                   )   \
         R_PROPERTY_FIELD2  (   NAME    ,TYPE   ,ACCESSOR   ,{}         ,0          ,           ,0          )   \

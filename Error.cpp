@@ -41,14 +41,11 @@ throw_on_error_win(
         msg(lpBuffer);
     ::LocalFree(lpBuffer);
 
-    throw Error{Log{u8"de7708f7-a526-4f1f-bcf3-7f2e68fd1da3"_uuid}
-        .message("Windows API")
-        .att("api_message", msg)
-        };
+    "de7708f7-a526-4f1f-bcf3-7f2e68fd1da3"_log("Windows API")("api_message", msg);
 
 #else
 
-    throw Error{u8"de7708f7-a526-4f1f-bcf3-7f2e68fd1da3"_uuid, "This code should only execute on Windows."};
+    "de7708f7-a526-4f1f-bcf3-7f2e68fd1da3"_log("This code should only execute on Windows.").throw_error();
 
 #endif
 }

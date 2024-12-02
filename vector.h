@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <iterator>
 #include <optional>
+#include <initializer_list>
 
 
 namespace nsBase
@@ -65,6 +66,36 @@ contains(
     return ::std::find(inContainer.begin(),inContainer.end(),inValue) != inContainer.end();
 //    return inContainer.find( inContainer.begin(),inContainer.end(), inValue) != inContainer.end();
 }
+
+
+template<
+    typename C
+,   typename V
+>
+bool
+contains(
+    ::std::initializer_list<C> const & collection
+,   V                          const & needle
+)
+{
+    return ::std::find(collection.begin(), collection.end(), needle) != collection.end();
+}
+
+
+template<
+    typename C
+,   typename V
+>
+bool
+is_one_of(
+    V                          const & needle
+,   ::std::initializer_list<C> const & collection
+)
+{
+    return ::std::find(collection.begin(), collection.end(), needle) != collection.end();
+}
+
+
 
 
 /**
@@ -146,7 +177,7 @@ remove(
 ,   I const & inIndex
 )
 {
-    inoutContainer.erase( inoutContainer.begin() + inIndex );
+    inoutContainer.erase(inoutContainer.begin() + inIndex);
 }
 
 /**
@@ -203,6 +234,7 @@ erase_if(
     }
 }
 
+
 template<typename ContainerT, typename PredicateT>
 ::std::optional<typename ContainerT::value_type>
 find_if(
@@ -214,6 +246,22 @@ find_if(
         return *it;
     return {};
 }
+
+
+template<typename KEY, typename VALUE>
+::std::optional<VALUE>
+get_if(
+    ::std::map<KEY, VALUE> const & container
+,   KEY                    const & key
+)
+{
+    if (auto it = container.find(key); it!=container.end())
+        return it->second;
+    return {};
+}
+
+
+
 
 
 #define r_value_type(container) ::std::remove_reference<decltype(container)>::type::value_type
@@ -323,7 +371,8 @@ template<typename Collection>
             ::std::for_each(
                     it_path
                 ,   path.end()
-                ,   [&](auto & s){tail.emplace_back(s);}
+//                ,   [&](auto & s){tail.emplace_back(s);}
+                ,   [&](auto & s){tail.push_back(s);}
                 );
 
             return tail;

@@ -51,10 +51,17 @@ class on_delete
         dispose()
             {
                 if (func())
-                {
                     func()();
-                    release();
-                }
+
+                release();
+            }
+
+    /** Test whether the instance is un-disposed.
+    */
+    public :
+        operator bool() const
+            {
+                return bool(func());
             }
 };
 

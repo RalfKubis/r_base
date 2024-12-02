@@ -70,28 +70,15 @@ create(
     auto it = command_factories.find(command_name);
 
     if (it==command_factories.end())
-    {
-        throw Error(Log(u8"550f5815-4137-4199-a59d-811b38759bb5"_uuid)
-            .message("Unknown command '${data}'")
-            .data(command_name)
-            );
-    }
+        "550f5815-4137-4199-a59d-811b38759bb5"_log("Unknown command '${data}'").data(command_name).throw_error();
 
     if (!it->second)
-    {
-        throw Error(Log(u8"72a8c87f-4af8-4d5c-94a0-06eef5c4f98d"_uuid)
-            .message("Have no handler for command '${data}'")
-            .data(command_name)
-            );
-    }
+        "72a8c87f-4af8-4d5c-94a0-06eef5c4f98d"_log("Have no handler for command '${data}'").data(command_name).throw_error();
 
     if (auto cmd=it->second())
         return cmd;
 
-    throw Error(Log(u8"8fd5f9a6-2522-4190-8d7f-876d211e8d11"_uuid)
-        .message("Command '${data}' can't get handled")
-        .data(command_name)
-        );
+    "8fd5f9a6-2522-4190-8d7f-876d211e8d11"_log("Command '${data}' can't get handled").data(command_name).throw_error();
 }
 
 
@@ -127,18 +114,12 @@ Command::attribute1(
     if (is_required)
     {
         if (aaa.size()!=1)
-            throw Error(Log(u8"44f2fa52-ac08-4af9-908c-3e8a8b5d5815"_uuid)
-                .message("The attribute '${data}' must occur exactly once.")
-                .data(attribute_name)
-                );
+            "44f2fa52-ac08-4af9-908c-3e8a8b5d5815"_log("The attribute '${data}' must occur exactly once.").data(attribute_name).throw_error();
     }
     else
     {
         if (aaa.size()>1)
-            throw Error(Log(u8"633b6592-c7d4-4a4c-a11e-455f534f1d45"_uuid)
-                .message("The attribute '${data}' must not occur more than once.")
-                .data(attribute_name)
-                );
+            "633b6592-c7d4-4a4c-a11e-455f534f1d45"_log("The attribute '${data}' must not occur more than once.").data(attribute_name).throw_error();
     }
 
     if (aaa.empty())
@@ -198,7 +179,7 @@ usage(
         for (auto const & [name,factory] : command_factories)
         {
             if (!cmdList.empty())
-                cmdList += u8" | "s;
+                cmdList += " | "s;
             cmdList += name;
 
             auto cmd = factory();
@@ -215,7 +196,7 @@ usage(
 
         retVal = ::fmt::format(
                 "\n"
-                "Usage: {0} { '--'Command {Attribute} }\n"
+                "Usage: {0} {{ '--'Command {{Attribute}} }}\n"
                 "\n"
                 "       Command : {1}\n"
                 "\n"
@@ -291,12 +272,7 @@ parse(
 
         // parse command name
         if (command_name.find_first_of("--")!=0)
-        {
-            throw Error(Log(u8"b3794764-732c-45e3-bfda-94a2d454b00b"_uuid)
-                .message("parse error near '${data}'")
-                .data(command_name)
-                );
-        }
+            "b3794764-732c-45e3-bfda-94a2d454b00b"_log("parse error near '${data}'").data(command_name).throw_error();
 
         // cut away "--"
         command_name = command_name.substr(2);
@@ -321,10 +297,7 @@ parse(
                 posOfEqualSign = attribute.find_first_of('=');
 
             if (posOfEqualSign==0 || posOfEqualSign==::std::string::npos)
-                throw Error(Log(u8"fc5fd1f9-272f-4853-8384-9c99ff822f35"_uuid)
-                    .message("parse error near '${data}'")
-                    .data(attribute)
-                    );
+                "fc5fd1f9-272f-4853-8384-9c99ff822f35"_log("parse error near '${data}'").data(attribute).throw_error();
 
             command->attributeAdd(
                     attribute.substr(0,posOfEqualSign)

@@ -1,10 +1,6 @@
 ﻿#pragma once
 /* Copyright (C) Ralf Kubis */
 
-
-#include "quancept/ast_to_model/decl.h"
-#include "quancept/model/Context.h"
-
 #include <stack>
 #include <vector>
 
@@ -36,7 +32,7 @@ template<class T>
                         )
                         {
                             if (m_pushed)
-                                throw Error(Log(u8"10349cd0-af2b-4fdb-b6f7-c6c2f8220a74"_uuid));
+                                "10349cd0-af2b-4fdb-b6f7-c6c2f8220a74"_log().throw_error();
 
                             m_stack.push_back(element);
                             m_pushed = true;
